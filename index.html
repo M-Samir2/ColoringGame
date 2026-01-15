@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Coloring Game</title>
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f2f2f2;
+  overflow: hidden;
+}
+.hidden {
+  display: none;
+}
+header {
+  background: #333;
+  color: #fff;
+  padding: 10px;
+  text-align: center;
+}
+#home {
+  text-align: center;
+  padding: 10px;
+}
+.thumb {
+  width: 90px;
+  height: 120px;
+  margin: 10px;
+  border: 2px solid #555;
+  display: inline-block;
+  background: #fff;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+}
+canvas {
+  background: #fff;
+  display: block;
+  margin: auto;
+  cursor: crosshair;
+  touch-action: none; /* لمنع الزوم الافتراضي */
+}
+#tools {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: #ddd;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  padding: 6px;
+}
+.color {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #333;
+  margin: 2px;
+  cursor: pointer;
+}
+.tool {
+  width: 44px;
+  height: 44px;
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2px;
+  cursor: pointer;
+}
+.tool.big {
+  width: 52px;
+  height: 52px;
+}
+.active {
+  outline: 3px solid #2196f3;
+}
+button {
+  cursor: pointer;
+  margin: 2px;
+  padding: 5px 8px;
+}
+input[type="range"] {
+  width: 80px;
+  margin: 2px;
+}
+</style>
+</head>
+<body>
+
+<header><span id="title">اختار صورة</span></header>
+
+<div id="home"></div>
+
+<canvas id="canvas" width="360" height="500" class="hidden"></canvas>
+
+<div id="tools" class="hidden">
+  <div class="color" style="background:red" onclick="setColor('red')"></div>
+  <div class="color" style="background:blue" onclick="setColor('blue')"></div>
+  <div class="color" style="background:green" onclick="setColor('green')"></div>
+  <div class="color" style="background:yellow" onclick="setColor('yellow')"></div>
+  <div class="color" style="background:black" onclick="setColor('black')"></div>
+
+  <button id="bBrush" class="tool" onclick="setTool('brush')">🖌️</button>
+  <button id="bBucket" class="tool big" onclick="setTool('bucket')">🪣</button>
+  <button id="bEraser" class="tool" onclick="setTool('eraser')">🧽</button>
+
+  <input type="range" min="4" max="30" value="8" id="size" title="حجم الفرشة">
+
+  <button onclick="undo()">↩</button>
+  <button onclick="saveWork()">💾 حفظ</button>
+  <button onclick="goHome()">🏠</button>
+</div>
+
+<script>
+const images = [1, 2, 3].map((n) => `images/${n}.png`);
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const img = new Image();
+
+let currentImage = null;
+let tool = "brush";
+let color = "red";
+let drawing = false;
+let history = [];
+let changed = false;
+
+/* --- HOME --- */
+function loadHome() {
+  home.innerHTML = "";
+  // عرض الصور الأصلية
+  const origTitle = document.createElement("h3");
+  origTitle.textContent = "الصور الأصلية";
+  home.appendChild(origTitle);
+  images.forEach((src) => {
+    const d = document.createElement("div");
+    d.className = "thumb";
+    d.style.backgroundImage = `url(${src})`;
+    d.onclick = () => openImage(src);
+    home.appendChild(d);
+  });
+
+  // عرض الصور المحفوظة في localStorage (الألبوم)
+  const savedKeys = Object.keys(localStorage).filter((k) => k.startsWith("saved_"));
+  if (savedKeys.length > 0) {
+    const albTitle = document.createElement("h3");
+    albTitle.textContent = "الألبوم";
+    home.appendChild(albTitle);
+    savedKeys.forEach((key) => {
+      const dataUrl = localStorage.getItem(key);
+      const d = document.createElement("div");
+      d.className = "thumb";
+      d.style.backgroundImage = `url(${dataUrl})`;
+      d.title = key.replace("saved_", "");
+      d.onclick = () => openSaved(key);
+      home.appendChild(d);
+    });
+  }
+}
+loadHome();
+
+/* --- OPEN IMAGE --- */
+function openImage(src) {
+  currentImage = src;
+  title.innerText = "تلوين الصورة";
+  home.classList.add("hidden");
+  canvas.classList.remove("hidden");
+  tools.classList.remove("hidden");
+
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    history = [];
+    saveState();
+    changed = false;
+
+    // لو محفوظ في الالبوم نرجع الرسمة المحفوظة
+    let savedKey = "saved_" + currentImage;
+    if (localStorage.getItem(savedKey)) {
+      const s = new Image();
+      s.onload = () => ctx.drawImage(s, 0, 0);
+      s.src = localStorage.getItem(savedKey);
+    }
+  };
+  img.src = src;
+}
+
+function openSaved(key) {
+  const origKey = key.replace("saved_", "");
+  currentImage = origKey;
+  title.innerText = "تعديل التلوين";
+  home.classList.add("hidden");
+  canvas.classList.remove("hidden");
+  tools.classList.remove("hidden");
+
+  const dataUrl = localStorage.getItem(key);
+  const baseImage = new Image();
+  baseImage.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(baseImage, 0, 0);
+    history = [];
+    saveState();
+    changed = false;
+  };
+  baseImage.src = dataUrl;
+}
+
+/* --- TOOLS --- */
+function setColor(c) {
+  color = c;
+  bBucket.style.background = c; // لون زر الـBucket يتغير تلقائيًا
+}
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll(".tool").forEach((b) => b.classList.remove("active"));
+  if (t === "brush") bBrush.classList.add("active");
+  if (t === "bucket") bBucket.classList.add("active");
+  if (t === "eraser") bEraser.classList.add("active");
+}
+
+/* --- EVENTS للماوس واللمس --- */
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  let clientX, clientY;
+
+  if (e.touches && e.touches.length) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top,
+  };
+}
+
+function startDraw(e) {
+  e.preventDefault();
+  const p = getPos(e);
+  saveState();
+  changed = true;
+  if (tool === "bucket") bucket(p.x, p.y);
+  else {
+    drawing = true;
+    paint(p.x, p.y);
+  }
+}
+function moveDraw(e) {
+  if (!drawing) return;
+  e.preventDefault();
+  const p = getPos(e);
+  paint(p.x, p.y);
+}
+function endDraw(e) {
+  drawing = false;
+}
+
+canvas.addEventListener("mousedown", startDraw);
+canvas.addEventListener("mousemove", moveDraw);
+canvas.addEventListener("mouseup", endDraw);
+canvas.addEventListener("mouseleave", endDraw);
+
+canvas.addEventListener("touchstart", startDraw, { passive: false });
+canvas.addEventListener("touchmove", moveDraw, { passive: false });
+canvas.addEventListener("touchend", endDraw);
+
+/* --- PAINT --- */
+function paint(x, y) {
+  ctx.fillStyle = tool === "eraser" ? "white" : color;
+  const s = size.value;
+  ctx.beginPath();
+  ctx.arc(x, y, s, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* --- BUCKET TOOL (Flood Fill) --- */
+function bucket(x, y) {
+  try {
+    const imgD = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imgD.data,
+      w = imgD.width,
+      h = imgD.height;
+    const sx = Math.floor(x),
+      sy = Math.floor(y);
+    const i0 = (sy * w + sx) * 4;
+    const target = d.slice(i0, i0 + 4);
+    const fill = rgb(color);
+    if (eq(target, fill)) return;
+    const q = [[sx, sy]];
+    while (q.length) {
+      const [pX, pY] = q.pop();
+      if (pX < 0 || pY < 0 || pX >= w || pY >= h) continue;
+      const i = (pY * w + pX) * 4;
+      if (!eq(d.slice(i, i + 4), target)) continue;
+      if (d[i] < 30 && d[i + 1] < 30 && d[i + 2] < 30) continue; // تجاهل الأسود (الخطوط)
+      d[i] = fill[0];
+      d[i + 1] = fill[1];
+      d[i + 2] = fill[2];
+      d[i + 3] = 255;
+      q.push([pX + 1, pY], [pX - 1, pY], [pX, pY + 1], [pX, pY - 1]);
+    }
+    ctx.putImageData(imgD, 0, 0);
+  } catch (e) {
+    alert("حدث خطأ في التلوين بالـBucket. حاول تضغط في مكان داخل الرسم.");
+  }
+}
+
+/* --- UNDO --- */
+function saveState() {
+  history.push(canvas.toDataURL());
+  if (history.length > 30) history.shift();
+}
+function undo() {
+  if (history.length < 2) return alert("مفيش خطوات تراجع حاليا.");
+  history.pop();
+  const i = new Image();
+  i.onload = () => ctx.drawImage(i, 0, 0);
+  i.src = history[history.length - 1];
+  changed = true;
+}
+
+/* --- SAVE --- */
+function saveWork() {
+  if (confirm("هل تريد حفظ التلوين؟")) {
+    localStorage.setItem("saved_" + currentImage, canvas.toDataURL("image/png"));
+    changed = false;
+    alert("تم الحفظ بنجاح 👍");
+    loadHome();
+    goHome();
+  }
+}
+
+/* --- GO HOME مع تحذير --- */
+function goHome() {
+  if (changed) {
+    if (!confirm("لديك تعديلات لم تحفظها. هل تريد الخروج بدون حفظ؟")) return;
+  }
+  title.innerText = "اختار صورة";
+  canvas.classList.add("hidden");
+  tools.classList.add("hidden");
+  home.classList.remove("hidden");
+  loadHome();
+}
+
+/* --- ألوان --- */
+function rgb(c) {
+  const t = document.createElement("div");
+  t.style.color = c;
+  document.body.appendChild(t);
+  const r = getComputedStyle(t).color.match(/\d+/g).map(Number);
+  document.body.removeChild(t);
+  return [r[0], r[1], r[2], 255];
+}
+function eq(a, b) {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+}
+
+/* --- INIT --- */
+setColor(color);
+setTool(tool);
+</script>
+
+</body>
+</html>
