@@ -68,6 +68,7 @@ canvas{
   border-radius:50%;
   border:2px solid #555;
   user-select:none;
+  cursor:pointer;
 }
 .color.active{
   border:3px solid #fff;
@@ -242,7 +243,7 @@ let currentImg = null;    // الصورة المفتوحة حالياً (null ل
 let lastTouchDist = null;  // لمسافة آخر حركة للإصبعين (لتغيير الزوم)
 
 /* size */
-size.oninput=e=>ctx.lineWidth=e.target.value;
+size.oninput = e => ctx.lineWidth = e.target.value;
 
 /* colors */
 const colorList=["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"];
@@ -321,15 +322,17 @@ function zoomOutTouch(){
 canvas.onmousedown = e => {
  drawing = true;
  ctx.beginPath();
- const x = e.offsetX / scale;
- const y = e.offsetY / scale;
+ const rect = canvas.getBoundingClientRect();
+ const x = (e.clientX - rect.left) / scale;
+ const y = (e.clientY - rect.top) / scale;
  ctx.moveTo(x,y);
  undoStack.push(canvas.toDataURL());
 };
 canvas.onmousemove = e => {
  if(!drawing) return;
- const x = e.offsetX / scale;
- const y = e.offsetY / scale;
+ const rect = canvas.getBoundingClientRect();
+ const x = (e.clientX - rect.left) / scale;
+ const y = (e.clientY - rect.top) / scale;
  if(tool === "brush"){
   ctx.strokeStyle = color;
   ctx.lineCap = "round";
@@ -341,23 +344,25 @@ canvas.onmousemove = e => {
  }
 };
 canvas.onmouseup = () => drawing = false;
+canvas.onmouseleave = () => drawing = false;
 
 canvas.onclick = e => {
  if(tool !== "bucket") return;
- const x = e.offsetX / scale;
- const y = e.offsetY / scale;
- bucketFill(x,y);
+ const rect = canvas.getBoundingClientRect();
+ const x = (e.clientX - rect.left) / scale;
+ const y = (e.clientY - rect.top) / scale;
+ bucketFill(Math.floor(x), Math.floor(y));
 };
 
 function bucketFill(x,y){
  let img = ctx.getImageData(0,0,canvas.width,canvas.height);
  let d = img.data;
- let i = (Math.floor(y) * canvas.width + Math.floor(x)) * 4;
+ let i = (y * canvas.width + x) * 4;
  let target = d.slice(i,i+4);
  let fill = hex(color);
  if(match(target,fill)) return;
 
- let stack = [[Math.floor(x),Math.floor(y)]];
+ let stack = [[x,y]];
  while(stack.length){
   let [cx,cy] = stack.pop();
   if(cx < 0 || cy < 0 || cx >= canvas.width || cy >= canvas.height) continue;
@@ -423,7 +428,6 @@ function drawImageOnCanvas(){
   ctx.drawImage(currentImg,0,0);
   ctx.restore();
  } else {
-  // لما اللوحة فاضية ارسم خلفية بيضاء كاملة
   ctx.fillStyle = "#fff";
   ctx.fillRect(0,0,canvas.width,canvas.height);
  }
