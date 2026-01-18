@@ -2,345 +2,278 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Coloring Game</title>
 
 <style>
-body {
-  margin: 0;
-  font-family: Arial;
-  background: #f2f2f2;
+body{margin:0;background:#222;color:#fff;font-family:Arial;overflow:hidden}
+#home,#editor{display:none;height:100vh}
+#home{padding:10px}
+h2{text-align:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
+.grid img{width:100%;border-radius:10px;cursor:pointer}
+
+#editor{display:flex;flex-direction:column}
+#top{display:flex;gap:5px;padding:5px;background:#111}
+#top button{flex:1;padding:8px;border:none;border-radius:6px}
+
+#canvasBox{
+  flex:1;
+  overflow:hidden;
+  touch-action:none;
+  background:#333;
 }
 
-.hidden { display: none; }
-
-#profileScreen, #homeScreen, #editorScreen {
-  padding: 10px;
+canvas{
+  background:#fff;
+  transform-origin:0 0;
 }
 
-h2 { text-align: center; }
-
-button {
-  padding: 8px 12px;
-  margin: 4px;
+#tools{
+  display:flex;
+  align-items:center;
+  padding:5px;
+  gap:6px;
+  background:#111;
 }
 
-.profileBtn {
-  display: block;
-  width: 100%;
-  margin: 6px 0;
+.color{
+  width:30px;height:30px;border-radius:50%;
+  border:2px solid #555;cursor:pointer
+}
+.color.active{
+  border:3px solid #fff;
+  transform:translateY(-3px);
 }
 
-canvas {
-  width: 100%;
-  background: #fff;
-  touch-action: none;
+.tool{
+  width:36px;height:36px;border-radius:6px;
+  background:#333;color:#fff;border:none;
+  font-size:18px
 }
 
-#colors {
-  display: flex;
-  overflow-x: auto;
-  padding: 6px;
-  background: #eee;
-}
-
-.color {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  margin: 4px;
-  border: 2px solid transparent;
-}
-
-.color.active {
-  transform: scale(1.2);
-  border-color: #000;
-}
-
-#tools {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin: 6px 0;
-}
+input[type=range]{width:80px}
 </style>
 </head>
 
 <body>
 
-<!-- ================= PROFILE SCREEN ================= -->
-<div id="profileScreen">
-  <h2>اختيار البروفايل</h2>
-  <div id="profilesList"></div>
-  <input id="newProfileName" placeholder="اسم بروفايل جديد">
-  <button onclick="createProfile()">إنشاء بروفايل</button>
+<div id="home">
+<h2>اختر صورة</h2>
+<div class="grid" id="gallery"></div>
 </div>
 
-<!-- ================= HOME SCREEN ================= -->
-<div id="homeScreen" class="hidden">
-  <h2 id="profileTitle"></h2>
-  <button onclick="openEditor()">🎨 صورة جديدة</button>
-  <h3>الألبوم</h3>
-  <div id="album"></div>
-  <button onclick="logout()">تغيير البروفايل</button>
+<div id="editor">
+<div id="top">
+<button onclick="backHome()">🏠</button>
+<button onclick="undo()">↩️ Undo</button>
+<button onclick="save()">💾 حفظ</button>
 </div>
 
-<!-- ================= EDITOR SCREEN ================= -->
-<div id="editorScreen" class="hidden">
-  <div id="tools">
-    <button onclick="setTool('brush')">🖌️</button>
-    <button onclick="setTool('bucket')">🪣</button>
-    <button onclick="setTool('eraser')">🧽</button>
-    <button onclick="enhance()">✨ تحسين</button>
-    <button onclick="undo()">↩️</button>
-    <button onclick="saveImage()">💾</button>
-    <button onclick="backHome()">🏠</button>
-  </div>
+<div id="canvasBox">
+<canvas id="canvas"></canvas>
+</div>
 
-  <canvas id="canvas"></canvas>
+<div id="tools">
+<button class="tool" onclick="setTool('brush')">🖌️</button>
+<button class="tool" onclick="setTool('bucket')">🪣</button>
+<button class="tool" onclick="setTool('eraser')">🧽</button>
 
-  <input type="range" min="3" max="30" value="8" id="brushSize">
+<input type="range" min="1" max="50" value="10" id="size">
 
-  <div id="colors"></div>
+<button class="tool" onclick="enhance()">✨</button>
+
+<div id="colors"></div>
+</div>
 </div>
 
 <script>
-/* ================= PROFILES ================= */
-let currentProfile = localStorage.getItem("currentProfile");
+/* ====== DATA ====== */
+const images=["images/1.png","images/2.png","images/3.png"];
+const colors=["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"];
+const sounds={
+  color:new Audio("sounds/color.mp3"),
+  paint:new Audio("sounds/paint.mp3"),
+  finish:new Audio("sounds/finish.mp3")
+};
 
-function getProfiles(){
-  return Object.keys(localStorage)
-    .filter(k => k.startsWith("profile_"))
-    .map(k => k.replace("profile_",""));
+/* ====== HOME ====== */
+const gallery=document.getElementById("gallery");
+images.forEach(src=>{
+ let img=document.createElement("img");
+ img.src=src;
+ img.onclick=()=>openImage(src);
+ gallery.appendChild(img);
+});
+document.getElementById("home").style.display="block";
+
+/* ====== CANVAS ====== */
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+let tool="brush",color="#000",drawing=false;
+let undoStack=[];
+
+/* ====== ZOOM ====== */
+let scale=1,lastDist=0;
+
+const box=document.getElementById("canvasBox");
+box.addEventListener("touchmove",e=>{
+ if(e.touches.length==2){
+   let dx=e.touches[0].clientX-e.touches[1].clientX;
+   let dy=e.touches[0].clientY-e.touches[1].clientY;
+   let dist=Math.sqrt(dx*dx+dy*dy);
+   if(lastDist){
+     scale+= (dist-lastDist)/300;
+     scale=Math.min(Math.max(scale,0.5),3);
+     canvas.style.transform=`scale(${scale})`;
+   }
+   lastDist=dist;
+ }
+});
+box.addEventListener("touchend",()=>lastDist=0);
+
+/* ====== TOOLS ====== */
+function setTool(t){tool=t}
+document.getElementById("size").oninput=e=>ctx.lineWidth=e.target.value;
+
+/* ====== COLORS ====== */
+const colorsDiv=document.getElementById("colors");
+colors.forEach(c=>{
+ let d=document.createElement("div");
+ d.className="color";
+ d.style.background=c;
+ d.onclick=()=>{
+   document.querySelectorAll(".color").forEach(x=>x.classList.remove("active"));
+   d.classList.add("active");
+   color=c;
+   sounds.color.play();
+ };
+ colorsDiv.appendChild(d);
+});
+
+/* ====== DRAW ====== */
+function getPos(e){
+ let r=canvas.getBoundingClientRect();
+ return {
+   x:(e.clientX-r.left)/scale,
+   y:(e.clientY-r.top)/scale
+ };
 }
 
-function createProfile(){
-  const name = document.getElementById("newProfileName").value.trim();
-  if(!name) return;
-  localStorage.setItem("profile_"+name, JSON.stringify({ images: [] }));
-  localStorage.setItem("currentProfile", name);
-  location.reload();
-}
+canvas.onmousedown=e=>{
+ drawing=true;
+ ctx.beginPath();
+ let p=getPos(e);
+ ctx.moveTo(p.x,p.y);
+ saveUndo();
+};
 
-function selectProfile(name){
-  localStorage.setItem("currentProfile", name);
-  location.reload();
-}
+canvas.onmousemove=e=>{
+ if(!drawing)return;
+ let p=getPos(e);
+ if(tool==="brush"){
+   ctx.strokeStyle=color;
+   ctx.lineCap="round";
+   ctx.lineTo(p.x,p.y);
+   ctx.stroke();
+ }
+ if(tool==="eraser"){
+   ctx.clearRect(p.x-ctx.lineWidth/2,p.y-ctx.lineWidth/2,ctx.lineWidth,ctx.lineWidth);
+ }
+};
 
-function logout(){
-  localStorage.removeItem("currentProfile");
-  location.reload();
-}
+canvas.onmouseup=()=>drawing=false;
 
-/* ================= UI INIT ================= */
-const profileScreen = document.getElementById("profileScreen");
-const homeScreen = document.getElementById("homeScreen");
-const editorScreen = document.getElementById("editorScreen");
+/* ====== BUCKET ====== */
+canvas.onclick=e=>{
+ if(tool!=="bucket")return;
+ saveUndo();
+ let p=getPos(e);
+ floodFill(Math.floor(p.x),Math.floor(p.y));
+};
 
-if(!currentProfile){
-  const list = document.getElementById("profilesList");
-  getProfiles().forEach(p=>{
-    const b = document.createElement("button");
-    b.className = "profileBtn";
-    b.textContent = p;
-    b.onclick = ()=>selectProfile(p);
-    list.appendChild(b);
-  });
-}else{
-  profileScreen.classList.add("hidden");
-  homeScreen.classList.remove("hidden");
-  document.getElementById("profileTitle").textContent =
-    "بروفايل: " + currentProfile;
-  loadAlbum();
-}
+function floodFill(x,y){
+ let img=ctx.getImageData(0,0,canvas.width,canvas.height);
+ let data=img.data;
+ let idx=(y*canvas.width+x)*4;
+ let target=data.slice(idx,idx+4);
+ let fill=hexToRgba(color);
 
-/* ================= ALBUM ================= */
-function loadAlbum(){
-  const data = JSON.parse(localStorage.getItem("profile_"+currentProfile));
-  const album = document.getElementById("album");
-  album.innerHTML = "";
-  data.images.forEach((img,i)=>{
-    const im = new Image();
-    im.src = img;
-    im.width = 80;
-    im.onclick = ()=>openEditor(img);
-    album.appendChild(im);
-  });
-}
+ if(match(target,fill))return;
+ let stack=[[x,y]];
 
-/* ================= EDITOR ================= */
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-canvas.height = 400;
-
-let tool = "brush";
-let drawing = false;
-let lastX = 0, lastY = 0;
-let brushSize = 8;
-let currentColor = "#ff0000";
-let history = [];
-
-function openEditor(imgData){
-  homeScreen.classList.add("hidden");
-  editorScreen.classList.remove("hidden");
-
-  canvas.width = window.innerWidth - 20;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  if(imgData){
-    const img = new Image();
-    img.src = imgData;
-    img.onload = ()=>ctx.drawImage(img,0,0);
+ while(stack.length){
+  let [cx,cy]=stack.pop();
+  if(cx<0||cy<0||cx>=canvas.width||cy>=canvas.height)continue;
+  let i=(cy*canvas.width+cx)*4;
+  if(match(data.slice(i,i+4),target)){
+    data[i]=fill[0];data[i+1]=fill[1];
+    data[i+2]=fill[2];data[i+3]=255;
+    stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
   }
+ }
+ ctx.putImageData(img,0,0);
+}
+
+function match(a,b){return a[0]==b[0]&&a[1]==b[1]&&a[2]==b[2]}
+function hexToRgba(h){
+ let c=parseInt(h.slice(1),16);
+ return [(c>>16)&255,(c>>8)&255,c&255,255];
+}
+
+/* ====== ENHANCE ====== */
+function enhance(){
+ let img=ctx.getImageData(0,0,canvas.width,canvas.height);
+ let d=img.data;
+ for(let i=0;i<d.length;i+=4){
+   if(d[i]<240||d[i+1]<240||d[i+2]<240){
+     d[i]=0;d[i+1]=0;d[i+2]=0;
+   }
+ }
+ ctx.putImageData(img,0,0);
+ alert("تم تحسين الحواف");
+}
+
+/* ====== UNDO ====== */
+function saveUndo(){
+ undoStack.push(canvas.toDataURL());
+ if(undoStack.length>20)undoStack.shift();
+}
+function undo(){
+ if(!undoStack.length)return;
+ let img=new Image();
+ img.src=undoStack.pop();
+ img.onload=()=>ctx.drawImage(img,0,0);
+}
+
+/* ====== SAVE ====== */
+function save(){
+ sounds.finish.play();
+ let a=document.createElement("a");
+ a.href=canvas.toDataURL();
+ a.download="coloring.png";
+ a.click();
+}
+
+/* ====== OPEN ====== */
+function openImage(src){
+ document.getElementById("home").style.display="none";
+ document.getElementById("editor").style.display="flex";
+ let img=new Image();
+ img.src=src;
+ img.onload=()=>{
+   canvas.width=img.width;
+   canvas.height=img.height;
+   ctx.drawImage(img,0,0);
+ };
 }
 
 function backHome(){
-  editorScreen.classList.add("hidden");
-  homeScreen.classList.remove("hidden");
-}
-
-function setTool(t){ tool = t; }
-
-document.getElementById("brushSize").oninput = e=>{
-  brushSize = Math.max(3, e.target.value);
-};
-
-/* ================= COLORS ================= */
-const palette = [
-  "#000","#fff","#f00","#0f0","#00f","#ff0","#0ff",
-  "#f0f","#ffa500","#8b4513","#808080","#4b0082"
-];
-
-const colorsDiv = document.getElementById("colors");
-palette.forEach(c=>{
-  const d = document.createElement("div");
-  d.className = "color";
-  d.style.background = c;
-  d.onclick = ()=>{
-    document.querySelectorAll(".color").forEach(x=>x.classList.remove("active"));
-    d.classList.add("active");
-    currentColor = c;
-  };
-  colorsDiv.appendChild(d);
-});
-
-/* ================= DRAW ================= */
-function saveState(){
-  history.push(canvas.toDataURL());
-  if(history.length > 20) history.shift();
-}
-
-function undo(){
-  if(!history.length) return;
-  const img = new Image();
-  img.src = history.pop();
-  img.onload = ()=>ctx.drawImage(img,0,0);
-}
-
-function start(x,y){
-  drawing = true;
-  saveState();
-  lastX = x; lastY = y;
-  if(tool==="bucket") floodFill(x,y);
-}
-
-function move(x,y){
-  if(!drawing || tool==="bucket") return;
-
-  ctx.lineCap = ctx.lineJoin = "round";
-  ctx.lineWidth = brushSize;
-
-  if(tool==="eraser"){
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.strokeStyle = "rgba(0,0,0,1)";
-  }else{
-    ctx.globalCompositeOperation = "source-over";
-    ctx.strokeStyle = currentColor;
-  }
-
-  ctx.beginPath();
-  ctx.moveTo(lastX,lastY);
-  ctx.lineTo(x,y);
-  ctx.stroke();
-
-  lastX=x; lastY=y;
-}
-
-function stop(){
-  drawing=false;
-  ctx.globalCompositeOperation="source-over";
-}
-
-canvas.addEventListener("mousedown",e=>start(e.offsetX,e.offsetY));
-canvas.addEventListener("mousemove",e=>move(e.offsetX,e.offsetY));
-canvas.addEventListener("mouseup",stop);
-canvas.addEventListener("mouseleave",stop);
-
-canvas.addEventListener("touchstart",e=>{
-  const t=e.touches[0], r=canvas.getBoundingClientRect();
-  start(t.clientX-r.left, t.clientY-r.top);
-});
-canvas.addEventListener("touchmove",e=>{
-  const t=e.touches[0], r=canvas.getBoundingClientRect();
-  move(t.clientX-r.left, t.clientY-r.top);
-});
-canvas.addEventListener("touchend",stop);
-
-/* ================= FLOOD FILL ================= */
-function floodFill(x,y){
-  const img = ctx.getImageData(0,0,canvas.width,canvas.height);
-  const data = img.data;
-  const w = canvas.width;
-  const h = canvas.height;
-
-  const idx = (Math.floor(y)*w+Math.floor(x))*4;
-  const target = data.slice(idx,idx+4);
-  const fill = hexToRgba(currentColor);
-
-  if(match(target,fill)) return;
-
-  const stack=[[Math.floor(x),Math.floor(y)]];
-  while(stack.length){
-    const [cx,cy]=stack.pop();
-    if(cx<0||cy<0||cx>=w||cy>=h) continue;
-    const i=(cy*w+cx)*4;
-    if(!match(data.slice(i,i+4),target)) continue;
-    data.set(fill,i);
-    stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
-  }
-  ctx.putImageData(img,0,0);
-}
-
-function hexToRgba(hex){
-  hex=hex.replace("#","");
-  return [
-    parseInt(hex.substr(0,2),16),
-    parseInt(hex.substr(2,2),16),
-    parseInt(hex.substr(4,2),16),
-    255
-  ];
-}
-function match(a,b){
-  return a[0]==b[0]&&a[1]==b[1]&&a[2]==b[2]&&a[3]==b[3];
-}
-
-/* ================= ENHANCE ================= */
-function enhance(){
-  ctx.strokeStyle="#000";
-  ctx.lineWidth=1;
-  ctx.strokeRect(0,0,canvas.width,canvas.height);
-}
-
-/* ================= SAVE ================= */
-function saveImage(){
-  const data = JSON.parse(localStorage.getItem("profile_"+currentProfile));
-  data.images.push(canvas.toDataURL("image/png"));
-  localStorage.setItem("profile_"+currentProfile, JSON.stringify(data));
-  alert("تم الحفظ داخل الألبوم ✅");
-  backHome();
-  loadAlbum();
+ if(confirm("الخروج بدون حفظ؟")){
+   document.getElementById("editor").style.display="none";
+   document.getElementById("home").style.display="block";
+ }
 }
 </script>
-
 </body>
 </html>
