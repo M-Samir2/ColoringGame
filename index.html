@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Coloring Game</title>
 
 <style>
@@ -30,12 +30,14 @@ h2{text-align:center;margin:10px}
   background:#333;
   overflow:hidden;
   touch-action:none;
+  position:relative;
 }
 canvas{
   background:#fff;
   display:block;
   margin:auto;
   transform-origin:0 0;
+  touch-action:none;
 }
 
 #tools{
@@ -65,6 +67,7 @@ canvas{
   height:28px;
   border-radius:50%;
   border:2px solid #555;
+  user-select:none;
 }
 .color.active{
   border:3px solid #fff;
@@ -82,7 +85,7 @@ input[type=range]{width:100%}
 <div id="profiles" class="screen">
 <h2>اختيار بروفايل</h2>
 <div id="profileList"></div>
-<input id="profileInput" placeholder="اسم بروفايل جديد">
+<input id="profileInput" placeholder="اسم بروفايل جديد" autocomplete="off">
 <button onclick="createProfile()">إنشاء بروفايل</button>
 </div>
 
@@ -141,6 +144,8 @@ const gallery = document.getElementById("gallery");
 const savedGallery = document.getElementById("savedGallery");
 const editor = document.getElementById("editor");
 const colorsDiv = document.getElementById("colors");
+const canvasBox = document.getElementById("canvasBox");
+const size = document.getElementById("size");
 
 const screens={
  profiles:profiles,
@@ -234,12 +239,14 @@ let undoStack=[];
 let scale = 1;            // متغير الزوم
 let currentImg = null;    // الصورة المفتوحة حالياً (null لو لوحة فاضية)
 
+let lastTouchDist = null;  // لمسافة آخر حركة للإصبعين (لتغيير الزوم)
+
 /* size */
 size.oninput=e=>ctx.lineWidth=e.target.value;
 
 /* colors */
 const colorList=["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"];
-colorList.forEach(c=>{
+colorList.forEach((c,i)=>{
  let d=document.createElement("div");
  d.className="color";
  d.style.background=c;
@@ -251,54 +258,112 @@ colorList.forEach(c=>{
  colorsDiv.appendChild(d);
 });
 
-/* draw */
-canvas.onmousedown=e=>{
- drawing=true;
+// فعل أول لون افتراضياً
+color = colorList[0];
+colorsDiv.children[0].classList.add("active");
+
+/* ======= TOUCH PINCH ZOOM ======= */
+canvas.addEventListener('touchstart', function(e){
+ if(e.touches.length === 2){
+  e.preventDefault();
+  lastTouchDist = getTouchDist(e.touches);
+ }
+},{passive:false});
+
+canvas.addEventListener('touchmove', function(e){
+ if(e.touches.length === 2){
+  e.preventDefault();
+  let newDist = getTouchDist(e.touches);
+  if(lastTouchDist){
+   let diff = newDist - lastTouchDist;
+   if(Math.abs(diff) > 5){
+    if(diff > 0){
+     zoomInTouch();
+    } else {
+     zoomOutTouch();
+    }
+    lastTouchDist = newDist;
+   }
+  }
+ }
+},{passive:false});
+
+canvas.addEventListener('touchend', function(e){
+ if(e.touches.length < 2){
+  lastTouchDist = null;
+ }
+},{passive:false});
+
+function getTouchDist(touches){
+ let dx = touches[0].clientX - touches[1].clientX;
+ let dy = touches[0].clientY - touches[1].clientY;
+ return Math.sqrt(dx*dx + dy*dy);
+}
+
+function zoomInTouch(){
+ if(!currentImg) return;
+ scale *= 1.1;
+ if(scale > 10) scale=10;
+ canvas.width = currentImg.width * scale;
+ canvas.height = currentImg.height * scale;
+ drawImageOnCanvas();
+}
+function zoomOutTouch(){
+ if(!currentImg) return;
+ scale /= 1.1;
+ if(scale < 0.2) scale=0.2;
+ canvas.width = currentImg.width * scale;
+ canvas.height = currentImg.height * scale;
+ drawImageOnCanvas();
+}
+
+/* ====== DRAW EVENTS WITH SCALE ====== */
+canvas.onmousedown = e => {
+ drawing = true;
  ctx.beginPath();
- // ضبط الإحداثيات مع الزوم
  const x = e.offsetX / scale;
  const y = e.offsetY / scale;
  ctx.moveTo(x,y);
  undoStack.push(canvas.toDataURL());
 };
-canvas.onmousemove=e=>{
- if(!drawing)return;
+canvas.onmousemove = e => {
+ if(!drawing) return;
  const x = e.offsetX / scale;
  const y = e.offsetY / scale;
- if(tool==="brush"){
-  ctx.strokeStyle=color;
-  ctx.lineCap="round";
+ if(tool === "brush"){
+  ctx.strokeStyle = color;
+  ctx.lineCap = "round";
   ctx.lineTo(x,y);
   ctx.stroke();
  }
- if(tool==="eraser"){
-  ctx.clearRect(x-ctx.lineWidth/2,y-ctx.lineWidth/2,ctx.lineWidth,ctx.lineWidth);
+ if(tool === "eraser"){
+  ctx.clearRect(x - ctx.lineWidth/2, y - ctx.lineWidth/2, ctx.lineWidth, ctx.lineWidth);
  }
 };
-canvas.onmouseup=()=>drawing=false;
+canvas.onmouseup = () => drawing = false;
 
-canvas.onclick=e=>{
- if(tool!=="bucket")return;
+canvas.onclick = e => {
+ if(tool !== "bucket") return;
  const x = e.offsetX / scale;
  const y = e.offsetY / scale;
  bucketFill(x,y);
 };
 
 function bucketFill(x,y){
- let img=ctx.getImageData(0,0,canvas.width,canvas.height);
- let d=img.data;
- let i=(Math.floor(y)*canvas.width+Math.floor(x))*4;
- let target=d.slice(i,i+4);
- let fill=hex(color);
- if(match(target,fill))return;
+ let img = ctx.getImageData(0,0,canvas.width,canvas.height);
+ let d = img.data;
+ let i = (Math.floor(y) * canvas.width + Math.floor(x)) * 4;
+ let target = d.slice(i,i+4);
+ let fill = hex(color);
+ if(match(target,fill)) return;
 
- let stack=[[Math.floor(x),Math.floor(y)]];
+ let stack = [[Math.floor(x),Math.floor(y)]];
  while(stack.length){
-  let [cx,cy]=stack.pop();
-  if(cx<0||cy<0||cx>=canvas.width||cy>=canvas.height)continue;
-  let ii=(cy*canvas.width+cx)*4;
+  let [cx,cy] = stack.pop();
+  if(cx < 0 || cy < 0 || cx >= canvas.width || cy >= canvas.height) continue;
+  let ii = (cy * canvas.width + cx) * 4;
   if(match(d.slice(ii,ii+4),target)){
-   d[ii]=fill[0];d[ii+1]=fill[1];d[ii+2]=fill[2];d[ii+3]=255;
+   d[ii] = fill[0]; d[ii+1] = fill[1]; d[ii+2] = fill[2]; d[ii+3] = 255;
    stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
   }
  }
@@ -306,11 +371,11 @@ function bucketFill(x,y){
 }
 
 function enhance(){
- let img=ctx.getImageData(0,0,canvas.width,canvas.height);
- let d=img.data;
- for(let i=0;i<d.length;i+=4){
+ let img = ctx.getImageData(0,0,canvas.width,canvas.height);
+ let d = img.data;
+ for(let i=0; i<d.length; i+=4){
   if(d[i]<240||d[i+1]<240||d[i+2]<240){
-   d[i]=0;d[i+1]=0;d[i+2]=0;
+   d[i]=0; d[i+1]=0; d[i+2]=0;
   }
  }
  ctx.putImageData(img,0,0);
@@ -318,35 +383,35 @@ function enhance(){
 }
 
 function hex(h){
- let c=parseInt(h.slice(1),16);
- return[(c>>16)&255,(c>>8)&255,c&255,255];
+ let c = parseInt(h.slice(1),16);
+ return [(c>>16)&255,(c>>8)&255,c&255,255];
 }
 function match(a,b){
- return a[0]==b[0]&&a[1]==b[1]&&a[2]==b[2];
+ return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 }
 
 /* editor actions */
 function undo(){
- if(!undoStack.length)return;
- let img=new Image();
- img.src=undoStack.pop();
- img.onload=()=>ctx.drawImage(img,0,0);
+ if(!undoStack.length) return;
+ let img = new Image();
+ img.src = undoStack.pop();
+ img.onload = () => ctx.drawImage(img,0,0);
 }
 function save(){
- let d=JSON.parse(localStorage.getItem("data_"+currentProfile));
+ let d = JSON.parse(localStorage.getItem("data_"+currentProfile));
  d.saved.push(canvas.toDataURL());
  localStorage.setItem("data_"+currentProfile,JSON.stringify(d));
  alert("تم الحفظ");
 }
 function openImage(src){
  show("editor");
- let img=new Image();
- img.src=src;
- img.onload=()=>{
+ let img = new Image();
+ img.src = src;
+ img.onload = () => {
   currentImg = img;
   scale = 1;
-  canvas.width=img.width;
-  canvas.height=img.height;
+  canvas.width = img.width;
+  canvas.height = img.height;
   drawImageOnCanvas();
  };
 }
@@ -359,22 +424,22 @@ function drawImageOnCanvas(){
   ctx.restore();
  } else {
   // لما اللوحة فاضية ارسم خلفية بيضاء كاملة
-  ctx.fillStyle="#fff";
+  ctx.fillStyle = "#fff";
   ctx.fillRect(0,0,canvas.width,canvas.height);
  }
 }
 
 function openBlank(){
  show("editor");
- canvas.width=600;
- canvas.height=600;
+ canvas.width = 600;
+ canvas.height = 600;
  currentImg = null;
  scale = 1;
  drawImageOnCanvas();
 
- // فعل أول لون في قائمة الألوان
+ // فعل أول لون في قائمة الألوان عشان تظهر وتشتغل
  color = colorList[0];
- document.querySelectorAll(".color").forEach(x=>x.classList.remove("active"));
+ document.querySelectorAll(".color").forEach(x => x.classList.remove("active"));
  document.querySelectorAll(".color")[0].classList.add("active");
 }
 
@@ -384,21 +449,19 @@ function backHome(){
  }
 }
 
-/* ======= أدوات الزوم ======= */
+/* ======= أزرار الزوم ======= */
 function zoomIn(){
- if(!currentImg) return; // لو لوحة فاضية ما نكبرش
+ if(!currentImg) return;
  scale *= 1.2;
- // ضبط الحد الأقصى للزوم
- if(scale>10) scale=10;
+ if(scale > 10) scale = 10;
  canvas.width = currentImg.width * scale;
  canvas.height = currentImg.height * scale;
  drawImageOnCanvas();
 }
 function zoomOut(){
- if(!currentImg) return; // لو لوحة فاضية ما نصغرش
+ if(!currentImg) return;
  scale /= 1.2;
- // ضبط الحد الأدنى للزوم
- if(scale<0.2) scale=0.2;
+ if(scale < 0.2) scale = 0.2;
  canvas.width = currentImg.width * scale;
  canvas.height = currentImg.height * scale;
  drawImageOnCanvas();
