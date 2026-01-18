@@ -2,53 +2,108 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Coloring Game</title>
 
 <style>
 body{margin:0;font-family:Arial;background:#222;color:#fff}
-.screen{display:none;height:100vh;padding:15px}
-button{padding:10px;border:none;border-radius:6px;margin:5px}
-h2{text-align:center}
+.screen{display:none;height:100vh}
+button{border:none;border-radius:8px;padding:8px 10px;font-size:14px}
+h2{text-align:center;margin:10px}
 
-/* profiles */
-.profile{background:#333;padding:10px;margin:8px;border-radius:6px;cursor:pointer}
+/* ===== PROFILES ===== */
+#profiles{padding:15px}
+.profile{background:#333;padding:12px;margin:8px;border-radius:8px;cursor:pointer;text-align:center}
 
-/* home */
+/* ===== HOME ===== */
+#home{padding:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
-.grid img{width:100%;border-radius:10px}
+.grid img{width:100%;border-radius:10px;cursor:pointer}
 
-/* editor */
-#editor{padding:0}
-#top{display:flex;background:#111;padding:5px}
-#canvasBox{flex:1}
-canvas{background:#fff;display:block;margin:auto}
-#tools{display:flex;gap:5px;background:#111;padding:5px}
-.color{width:26px;height:26px;border-radius:50%;border:2px solid #555}
-.color.active{border:3px solid #fff}
+/* ===== EDITOR ===== */
+#editor{display:flex;flex-direction:column}
+#top{display:flex;gap:6px;background:#111;padding:6px}
+#top button{flex:1}
+
+#canvasBox{
+  flex:1;
+  background:#333;
+  overflow:hidden;
+  touch-action:none;
+}
+canvas{
+  background:#fff;
+  display:block;
+  margin:auto;
+  transform-origin:0 0;
+}
+
+#tools{
+  background:#111;
+  padding:6px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+/* tools row */
+.toolsRow{
+  display:flex;
+  gap:6px;
+  justify-content:center;
+}
+
+/* colors */
+#colors{
+  display:grid;
+  grid-template-columns:repeat(6, 1fr);
+  gap:6px;
+  justify-items:center;
+}
+.color{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  border:2px solid #555;
+}
+.color.active{
+  border:3px solid #fff;
+  transform:translateY(-2px);
+}
+
+/* range */
+input[type=range]{width:100%}
 </style>
 </head>
 
 <body>
 
-<!-- PROFILES -->
+<!-- ===== PROFILES ===== -->
 <div id="profiles" class="screen">
 <h2>اختيار بروفايل</h2>
 <div id="profileList"></div>
-<input id="profileName" placeholder="اسم جديد">
-<button onclick="addProfile()">إنشاء بروفايل</button>
+<input id="profileInput" placeholder="اسم بروفايل جديد">
+<button onclick="createProfile()">إنشاء بروفايل</button>
 </div>
 
-<!-- HOME -->
+<!-- ===== HOME ===== -->
 <div id="home" class="screen">
-<h2 id="currentProfile"></h2>
+<h2 id="profileTitle"></h2>
+
+<button onclick="openBlank()">🖌️ لوحة فاضية</button>
+<input type="file" accept="image/*" onchange="addImage(this)">
+
+<h3>الصور</h3>
 <div class="grid" id="gallery"></div>
-<button onclick="openBlank()">لوحة فاضية</button>
-<button onclick="backToProfiles()">تغيير بروفايل</button>
+
+<h3>الألبوم (محفوظات)</h3>
+<div class="grid" id="savedGallery"></div>
+
+<button onclick="goProfiles()">تغيير بروفايل</button>
 </div>
 
-<!-- EDITOR -->
-<div id="editor" class="screen" style="display:flex;flex-direction:column">
+<!-- ===== EDITOR ===== -->
+<div id="editor" class="screen">
 <div id="top">
 <button onclick="backHome()">🏠</button>
 <button onclick="undo()">↩️</button>
@@ -56,37 +111,39 @@ canvas{background:#fff;display:block;margin:auto}
 </div>
 
 <div id="canvasBox">
-<canvas id="canvas" width="600" height="600"></canvas>
+<canvas id="canvas"></canvas>
 </div>
 
 <div id="tools">
-<button onclick="tool='brush'">🖌️</button>
-<button onclick="tool='bucket'">🪣</button>
-<button onclick="tool='eraser'">🧽</button>
+<div class="toolsRow">
+<button onclick="setTool('brush')">🖌️</button>
+<button onclick="setTool('bucket')">🪣</button>
+<button onclick="setTool('eraser')">🧽</button>
+<button onclick="enhance()">✨</button>
+</div>
+
 <input type="range" min="2" max="40" value="10" id="size">
+
 <div id="colors"></div>
 </div>
 </div>
 
 <script>
-/* ===== GLOBAL ===== */
+/* ================== SCREEN CONTROL ================== */
 const screens={
  profiles:profiles,
  home:home,
  editor:editor
 };
-function show(s){
- Object.values(screens).forEach(x=>x.style.display="none");
- screens[s].style.display="block";
+function show(name){
+ Object.values(screens).forEach(s=>s.style.display="none");
+ screens[name].style.display="block";
 }
 
-/* ===== PROFILES ===== */
+/* ================== PROFILES ================== */
 let currentProfile="";
 function getProfiles(){
  return JSON.parse(localStorage.getItem("profiles")||"[]");
-}
-function saveProfiles(p){
- localStorage.setItem("profiles",JSON.stringify(p));
 }
 function loadProfiles(){
  profileList.innerHTML="";
@@ -98,57 +155,72 @@ function loadProfiles(){
   profileList.appendChild(d);
  });
 }
-function addProfile(){
- let n=profileName.value.trim();
+function createProfile(){
+ let n=profileInput.value.trim();
  if(!n)return;
  let p=getProfiles();
  p.push(n);
- saveProfiles(p);
+ localStorage.setItem("profiles",JSON.stringify(p));
  localStorage.setItem("data_"+n,JSON.stringify({images:[],saved:[]}));
- profileName.value="";
+ profileInput.value="";
  loadProfiles();
 }
 function selectProfile(p){
  currentProfile=p;
- currentProfileLabel();
+ profileTitle.textContent=p;
  loadHome();
  show("home");
 }
-function currentProfileLabel(){
- document.getElementById("currentProfile").textContent=currentProfile;
-}
+function goProfiles(){show("profiles");}
 
-/* ===== HOME ===== */
+/* ================== HOME ================== */
 const baseImages=["images/1.png","images/2.png","images/3.png"];
+
 function loadHome(){
  gallery.innerHTML="";
+ savedGallery.innerHTML="";
  let data=JSON.parse(localStorage.getItem("data_"+currentProfile));
- baseImages.forEach(src=>{
+
+ [...baseImages,...data.images].forEach(src=>{
   let i=new Image();
   i.src=src;
   i.onclick=()=>openImage(src);
   gallery.appendChild(i);
  });
- data.images.forEach(src=>{
+
+ data.saved.forEach(src=>{
   let i=new Image();
   i.src=src;
   i.onclick=()=>openImage(src);
-  gallery.appendChild(i);
+  savedGallery.appendChild(i);
  });
 }
-function backToProfiles(){show("profiles");}
 
-/* ===== EDITOR ===== */
+function addImage(inp){
+ let r=new FileReader();
+ r.onload=e=>{
+  let d=JSON.parse(localStorage.getItem("data_"+currentProfile));
+  d.images.push(e.target.result);
+  localStorage.setItem("data_"+currentProfile,JSON.stringify(d));
+  loadHome();
+ };
+ r.readAsDataURL(inp.files[0]);
+}
+
+/* ================== EDITOR ================== */
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
-let tool="brush",drawing=false,color="#000";
+let tool="brush";
+let drawing=false;
+let color="#000";
 let undoStack=[];
 
+/* size */
 size.oninput=e=>ctx.lineWidth=e.target.value;
 
 /* colors */
-["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"]
-.forEach(c=>{
+const colorList=["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"];
+colorList.forEach(c=>{
  let d=document.createElement("div");
  d.className="color";
  d.style.background=c;
@@ -176,42 +248,63 @@ canvas.onmousemove=e=>{
   ctx.stroke();
  }
  if(tool==="eraser"){
-  ctx.clearRect(e.offsetX-10,e.offsetY-10,20,20);
+  ctx.clearRect(e.offsetX-ctx.lineWidth/2,e.offsetY-ctx.lineWidth/2,ctx.lineWidth,ctx.lineWidth);
  }
 };
 canvas.onmouseup=()=>drawing=false;
 
 canvas.onclick=e=>{
  if(tool!=="bucket")return;
- flood(e.offsetX,e.offsetY);
+ bucketFill(e.offsetX,e.offsetY);
 };
 
-function flood(x,y){
+function bucketFill(x,y){
  let img=ctx.getImageData(0,0,canvas.width,canvas.height);
  let d=img.data;
  let i=(y*canvas.width+x)*4;
- let t=d.slice(i,i+4);
- let f=hex(color);
+ let target=d.slice(i,i+4);
+ let fill=hex(color);
+ if(match(target,fill))return;
+
  let stack=[[x,y]];
  while(stack.length){
   let [cx,cy]=stack.pop();
+  if(cx<0||cy<0||cx>=canvas.width||cy>=canvas.height)continue;
   let ii=(cy*canvas.width+cx)*4;
-  if(match(d.slice(ii,ii+4),t)){
-   d[ii]=f[0];d[ii+1]=f[1];d[ii+2]=f[2];d[ii+3]=255;
+  if(match(d.slice(ii,ii+4),target)){
+   d[ii]=fill[0];d[ii+1]=fill[1];d[ii+2]=fill[2];d[ii+3]=255;
    stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
   }
  }
  ctx.putImageData(img,0,0);
 }
-function hex(h){let c=parseInt(h.slice(1),16);return[(c>>16)&255,(c>>8)&255,c&255,255]}
-function match(a,b){return a[0]==b[0]&&a[1]==b[1]&&a[2]==b[2]}
+
+function enhance(){
+ let img=ctx.getImageData(0,0,canvas.width,canvas.height);
+ let d=img.data;
+ for(let i=0;i<d.length;i+=4){
+  if(d[i]<240||d[i+1]<240||d[i+2]<240){
+   d[i]=0;d[i+1]=0;d[i+2]=0;
+  }
+ }
+ ctx.putImageData(img,0,0);
+ alert("تم تحسين الحواف");
+}
+
+function hex(h){
+ let c=parseInt(h.slice(1),16);
+ return[(c>>16)&255,(c>>8)&255,c&255,255];
+}
+function match(a,b){
+ return a[0]==b[0]&&a[1]==b[1]&&a[2]==b[2];
+}
 
 /* editor actions */
 function undo(){
  if(!undoStack.length)return;
- let i=new Image();
- i.src=undoStack.pop();
- i.onload=()=>ctx.drawImage(i,0,0);
+ let img=new Image();
+ img.src=undoStack.pop();
+ img.onload=()=>ctx.drawImage(img,0,0);
 }
 function save(){
  let d=JSON.parse(localStorage.getItem("data_"+currentProfile));
@@ -221,12 +314,12 @@ function save(){
 }
 function openImage(src){
  show("editor");
- let i=new Image();
- i.src=src;
- i.onload=()=>{
-  canvas.width=i.width;
-  canvas.height=i.height;
-  ctx.drawImage(i,0,0);
+ let img=new Image();
+ img.src=src;
+ img.onload=()=>{
+  canvas.width=img.width;
+  canvas.height=img.height;
+  ctx.drawImage(img,0,0);
  };
 }
 function openBlank(){
@@ -242,7 +335,7 @@ function backHome(){
  }
 }
 
-/* START */
+/* ================== START ================== */
 loadProfiles();
 show("profiles");
 </script>
