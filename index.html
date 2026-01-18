@@ -2,75 +2,68 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Coloring Game</title>
 
 <style>
-body{margin:0;background:#222;color:#fff;font-family:Arial}
-.screen{display:none;height:100vh}
-button{border:none;border-radius:6px;padding:10px}
-
+body{margin:0;font-family:Arial;background:#222;color:#fff}
+.screen{display:none;height:100vh;padding:15px}
+button{padding:10px;border:none;border-radius:6px;margin:5px}
 h2{text-align:center}
 
-/* ===== PROFILE ===== */
-#profiles{padding:20px}
-.profile{background:#333;padding:10px;margin:5px;border-radius:6px}
+/* profiles */
+.profile{background:#333;padding:10px;margin:8px;border-radius:6px;cursor:pointer}
 
-/* ===== HOME ===== */
-#home{padding:10px}
+/* home */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
-.grid img{width:100%;border-radius:10px;cursor:pointer}
+.grid img{width:100%;border-radius:10px}
 
-/* ===== EDITOR ===== */
-#editor{display:flex;flex-direction:column}
-#top{display:flex;gap:5px;background:#111;padding:5px}
-#canvasBox{flex:1;overflow:hidden;touch-action:none;background:#333}
-canvas{background:#fff;transform-origin:0 0}
-#tools{display:flex;align-items:center;gap:6px;background:#111;padding:5px}
-
-.color{width:30px;height:30px;border-radius:50%;border:2px solid #555}
-.color.active{border:3px solid #fff;transform:translateY(-3px)}
-.tool{width:36px;height:36px;background:#333;color:#fff}
+/* editor */
+#editor{padding:0}
+#top{display:flex;background:#111;padding:5px}
+#canvasBox{flex:1}
+canvas{background:#fff;display:block;margin:auto}
+#tools{display:flex;gap:5px;background:#111;padding:5px}
+.color{width:26px;height:26px;border-radius:50%;border:2px solid #555}
+.color.active{border:3px solid #fff}
 </style>
 </head>
 
 <body>
 
-<!-- ===== PROFILE SCREEN ===== -->
+<!-- PROFILES -->
 <div id="profiles" class="screen">
 <h2>اختيار بروفايل</h2>
 <div id="profileList"></div>
-<input id="newProfile" placeholder="اسم بروفايل جديد">
-<button onclick="createProfile()">➕ إنشاء</button>
+<input id="profileName" placeholder="اسم جديد">
+<button onclick="addProfile()">إنشاء بروفايل</button>
 </div>
 
-<!-- ===== HOME SCREEN ===== -->
+<!-- HOME -->
 <div id="home" class="screen">
-<h2 id="profileName"></h2>
-<button onclick="openEditor()">🖌️ لوحة فاضية</button>
-<input type="file" accept="image/*" onchange="uploadImage(this)">
+<h2 id="currentProfile"></h2>
 <div class="grid" id="gallery"></div>
-<button onclick="goProfiles()">تغيير بروفايل</button>
+<button onclick="openBlank()">لوحة فاضية</button>
+<button onclick="backToProfiles()">تغيير بروفايل</button>
 </div>
 
-<!-- ===== EDITOR SCREEN ===== -->
-<div id="editor" class="screen">
+<!-- EDITOR -->
+<div id="editor" class="screen" style="display:flex;flex-direction:column">
 <div id="top">
 <button onclick="backHome()">🏠</button>
-<button onclick="undo()">🔙</button>
+<button onclick="undo()">↩️</button>
 <button onclick="save()">💾</button>
 </div>
 
 <div id="canvasBox">
-<canvas id="canvas"></canvas>
+<canvas id="canvas" width="600" height="600"></canvas>
 </div>
 
 <div id="tools">
-<button class="tool" onclick="setTool('brush')">🖌️</button>
-<button class="tool" onclick="setTool('bucket')">🪣</button>
-<button class="tool" onclick="setTool('eraser')">🧽</button>
+<button onclick="tool='brush'">🖌️</button>
+<button onclick="tool='bucket'">🪣</button>
+<button onclick="tool='eraser'">🧽</button>
 <input type="range" min="2" max="40" value="10" id="size">
-<button class="tool" onclick="enhance()">✨</button>
 <div id="colors"></div>
 </div>
 </div>
@@ -78,81 +71,84 @@ canvas{background:#fff;transform-origin:0 0}
 <script>
 /* ===== GLOBAL ===== */
 const screens={
- profiles:document.getElementById("profiles"),
- home:document.getElementById("home"),
- editor:document.getElementById("editor")
+ profiles:profiles,
+ home:home,
+ editor:editor
 };
-function show(name){
- Object.values(screens).forEach(s=>s.style.display="none");
- screens[name].style.display="block";
+function show(s){
+ Object.values(screens).forEach(x=>x.style.display="none");
+ screens[s].style.display="block";
 }
 
 /* ===== PROFILES ===== */
 let currentProfile="";
-function getProfiles(){return JSON.parse(localStorage.getItem("profiles")||"[]")}
-function saveProfiles(p){localStorage.setItem("profiles",JSON.stringify(p))}
-
+function getProfiles(){
+ return JSON.parse(localStorage.getItem("profiles")||"[]");
+}
+function saveProfiles(p){
+ localStorage.setItem("profiles",JSON.stringify(p));
+}
 function loadProfiles(){
- let list=document.getElementById("profileList");
- list.innerHTML="";
+ profileList.innerHTML="";
  getProfiles().forEach(p=>{
-   let d=document.createElement("div");
-   d.className="profile";
-   d.textContent=p;
-   d.onclick=()=>selectProfile(p);
-   list.appendChild(d);
+  let d=document.createElement("div");
+  d.className="profile";
+  d.textContent=p;
+  d.onclick=()=>selectProfile(p);
+  profileList.appendChild(d);
  });
 }
-function createProfile(){
- let name=newProfile.value.trim();
- if(!name)return;
+function addProfile(){
+ let n=profileName.value.trim();
+ if(!n)return;
  let p=getProfiles();
- p.push(name);
+ p.push(n);
  saveProfiles(p);
- localStorage.setItem("data_"+name,JSON.stringify({images:[],saved:[]}));
+ localStorage.setItem("data_"+n,JSON.stringify({images:[],saved:[]}));
+ profileName.value="";
  loadProfiles();
 }
 function selectProfile(p){
  currentProfile=p;
- document.getElementById("profileName").textContent=p;
+ currentProfileLabel();
  loadHome();
  show("home");
+}
+function currentProfileLabel(){
+ document.getElementById("currentProfile").textContent=currentProfile;
 }
 
 /* ===== HOME ===== */
 const baseImages=["images/1.png","images/2.png","images/3.png"];
 function loadHome(){
+ gallery.innerHTML="";
  let data=JSON.parse(localStorage.getItem("data_"+currentProfile));
- let g=document.getElementById("gallery");
- g.innerHTML="";
- [...baseImages,...data.images].forEach(src=>{
-  let img=document.createElement("img");
-  img.src=src;
-  img.onclick=()=>openImage(src);
-  g.appendChild(img);
+ baseImages.forEach(src=>{
+  let i=new Image();
+  i.src=src;
+  i.onclick=()=>openImage(src);
+  gallery.appendChild(i);
+ });
+ data.images.forEach(src=>{
+  let i=new Image();
+  i.src=src;
+  i.onclick=()=>openImage(src);
+  gallery.appendChild(i);
  });
 }
-function uploadImage(inp){
- let r=new FileReader();
- r.onload=e=>{
-  let d=JSON.parse(localStorage.getItem("data_"+currentProfile));
-  d.images.push(e.target.result);
-  localStorage.setItem("data_"+currentProfile,JSON.stringify(d));
-  loadHome();
- };
- r.readAsDataURL(inp.files[0]);
-}
-function goProfiles(){show("profiles")}
+function backToProfiles(){show("profiles");}
 
 /* ===== EDITOR ===== */
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
-let tool="brush",color="#000",drawing=false,undoStack=[];
-document.getElementById("size").oninput=e=>ctx.lineWidth=e.target.value;
+let tool="brush",drawing=false,color="#000";
+let undoStack=[];
 
-/* COLORS */
-const colors=["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"];
-colors.forEach(c=>{
+size.oninput=e=>ctx.lineWidth=e.target.value;
+
+/* colors */
+["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"]
+.forEach(c=>{
  let d=document.createElement("div");
  d.className="color";
  d.style.background=c;
@@ -164,7 +160,7 @@ colors.forEach(c=>{
  colors.appendChild(d);
 });
 
-/* DRAW */
+/* draw */
 canvas.onmousedown=e=>{
  drawing=true;
  ctx.beginPath();
@@ -184,7 +180,11 @@ canvas.onmousemove=e=>{
  }
 };
 canvas.onmouseup=()=>drawing=false;
-canvas.onclick=e=>{ if(tool==="bucket") flood(e.offsetX,e.offsetY); };
+
+canvas.onclick=e=>{
+ if(tool!=="bucket")return;
+ flood(e.offsetX,e.offsetY);
+};
 
 function flood(x,y){
  let img=ctx.getImageData(0,0,canvas.width,canvas.height);
@@ -192,14 +192,13 @@ function flood(x,y){
  let i=(y*canvas.width+x)*4;
  let t=d.slice(i,i+4);
  let f=hex(color);
- if(match(t,f))return;
- let s=[[x,y]];
- while(s.length){
-  let [cx,cy]=s.pop();
+ let stack=[[x,y]];
+ while(stack.length){
+  let [cx,cy]=stack.pop();
   let ii=(cy*canvas.width+cx)*4;
   if(match(d.slice(ii,ii+4),t)){
    d[ii]=f[0];d[ii+1]=f[1];d[ii+2]=f[2];d[ii+3]=255;
-   s.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+   stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
   }
  }
  ctx.putImageData(img,0,0);
@@ -207,50 +206,46 @@ function flood(x,y){
 function hex(h){let c=parseInt(h.slice(1),16);return[(c>>16)&255,(c>>8)&255,c&255,255]}
 function match(a,b){return a[0]==b[0]&&a[1]==b[1]&&a[2]==b[2]}
 
-function enhance(){
- let img=ctx.getImageData(0,0,canvas.width,canvas.height);
- for(let i=0;i<img.data.length;i+=4){
-  if(img.data[i]<240) img.data[i]=img.data[i+1]=img.data[i+2]=0;
- }
- ctx.putImageData(img,0,0);
-}
-
+/* editor actions */
 function undo(){
  if(!undoStack.length)return;
- let im=new Image();
- im.src=undoStack.pop();
- im.onload=()=>ctx.drawImage(im,0,0);
+ let i=new Image();
+ i.src=undoStack.pop();
+ i.onload=()=>ctx.drawImage(i,0,0);
 }
-
 function save(){
  let d=JSON.parse(localStorage.getItem("data_"+currentProfile));
  d.saved.push(canvas.toDataURL());
  localStorage.setItem("data_"+currentProfile,JSON.stringify(d));
  alert("تم الحفظ");
 }
-
 function openImage(src){
  show("editor");
- let img=new Image();
- img.src=src;
- img.onload=()=>{
-  canvas.width=img.width;
-  canvas.height=img.height;
-  ctx.drawImage(img,0,0);
+ let i=new Image();
+ i.src=src;
+ i.onload=()=>{
+  canvas.width=i.width;
+  canvas.height=i.height;
+  ctx.drawImage(i,0,0);
  };
 }
-function openEditor(){
+function openBlank(){
  show("editor");
- canvas.width=800;canvas.height=800;
- ctx.fillStyle="#fff";ctx.fillRect(0,0,800,800);
+ canvas.width=600;
+ canvas.height=600;
+ ctx.fillStyle="#fff";
+ ctx.fillRect(0,0,600,600);
 }
 function backHome(){
- if(confirm("الخروج بدون حفظ؟")) show("home");
+ if(confirm("الخروج بدون حفظ؟")){
+  show("home");
+ }
 }
 
 /* START */
 loadProfiles();
 show("profiles");
 </script>
+
 </body>
 </html>
