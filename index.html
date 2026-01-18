@@ -2,342 +2,250 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Coloring Game</title>
 
 <style>
-body{margin:0;font-family:Arial;background:#222;color:#fff}
-.screen{display:none;height:100vh}
-button{border:none;border-radius:8px;padding:8px 10px;font-size:14px}
-h2{text-align:center;margin:10px}
-
-/* ===== PROFILES ===== */
-#profiles{padding:15px}
-.profile{background:#333;padding:12px;margin:8px;border-radius:8px;cursor:pointer;text-align:center}
-
-/* ===== HOME ===== */
-#home{padding:10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
-.grid img{width:100%;border-radius:10px;cursor:pointer}
-
-/* ===== EDITOR ===== */
-#editor{display:flex;flex-direction:column}
-#top{display:flex;gap:6px;background:#111;padding:6px}
-#top button{flex:1}
-
-#canvasBox{
-  flex:1;
-  background:#333;
-  overflow:hidden;
-  touch-action:none;
-}
-canvas{
-  background:#fff;
-  display:block;
-  margin:auto;
-  transform-origin:0 0;
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #f2f2f2;
+  overflow: hidden;
 }
 
-#tools{
-  background:#111;
-  padding:6px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
+#topBar {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px;
+  background: #fff;
+  border-bottom: 1px solid #ccc;
 }
 
-/* tools row */
-.toolsRow{
-  display:flex;
-  gap:6px;
-  justify-content:center;
+button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #ddd;
+  cursor: pointer;
 }
 
-/* colors */
-#colors{
-  display:grid;
-  grid-template-columns:repeat(6, 1fr);
-  gap:6px;
-  justify-items:center;
-}
-.color{
-  width:28px;
-  height:28px;
-  border-radius:50%;
-  border:2px solid #555;
-}
-.color.active{
-  border:3px solid #fff;
-  transform:translateY(-2px);
+button.active {
+  background: #4caf50;
+  color: #fff;
 }
 
-/* range */
-input[type=range]{width:100%}
+#colors {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  padding: 8px;
+  background: #fff;
+}
+
+.color {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #999;
+  cursor: pointer;
+}
+
+.color.selected {
+  border: 4px solid #000;
+  transform: scale(1.1);
+}
+
+#canvasContainer {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 160px);
+  background: #eee;
+}
+
+canvas {
+  background: white;
+  touch-action: none;
+}
+
+#gallery {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  overflow-x: auto;
+  background: #fff;
+  border-top: 1px solid #ccc;
+}
+
+#gallery img {
+  width: 80px;
+  border: 2px solid #ccc;
+  cursor: pointer;
+}
 </style>
 </head>
 
 <body>
 
-<!-- ===== PROFILES ===== -->
-<div id="profiles" class="screen">
-<h2>اختيار بروفايل</h2>
-<div id="profileList"></div>
-<input id="profileInput" placeholder="اسم بروفايل جديد">
-<button onclick="createProfile()">إنشاء بروفايل</button>
+<div id="topBar">
+  <button id="brushBtn" class="active">🖌️</button>
+  <button id="bucketBtn">🪣</button>
+  <button id="eraserBtn">🧽</button>
+  <button id="undoBtn">↩️ Undo</button>
+  <button id="blankBtn">⬜ لوحة فاضية</button>
+  <button id="saveBtn">💾 حفظ</button>
 </div>
-
-<!-- ===== HOME ===== -->
-<div id="home" class="screen">
-<h2 id="profileTitle"></h2>
-
-<button onclick="openBlank()">🖌️ لوحة فاضية</button>
-<input type="file" accept="image/*" onchange="addImage(this)">
-
-<h3>الصور</h3>
-<div class="grid" id="gallery"></div>
-
-<h3>الألبوم (محفوظات)</h3>
-<div class="grid" id="savedGallery"></div>
-
-<button onclick="goProfiles()">تغيير بروفايل</button>
-</div>
-
-<!-- ===== EDITOR ===== -->
-<div id="editor" class="screen">
-<div id="top">
-<button onclick="backHome()">🏠</button>
-<button onclick="undo()">↩️</button>
-<button onclick="save()">💾</button>
-</div>
-
-<div id="canvasBox">
-<canvas id="canvas"></canvas>
-</div>
-
-<div id="tools">
-<div class="toolsRow">
-<button onclick="setTool('brush')">🖌️</button>
-<button onclick="setTool('bucket')">🪣</button>
-<button onclick="setTool('eraser')">🧽</button>
-<button onclick="enhance()">✨</button>
-</div>
-
-<input type="range" min="2" max="40" value="10" id="size">
 
 <div id="colors"></div>
+
+<div id="canvasContainer">
+  <canvas id="canvas"></canvas>
 </div>
-</div>
+
+<div id="gallery"></div>
+
+<audio id="colorSound" src="sounds/color.mp3"></audio>
+<audio id="paintSound" src="sounds/paint.mp3"></audio>
+<audio id="finishSound" src="sounds/finish.mp3"></audio>
 
 <script>
-/* ================== SCREEN CONTROL ================== */
-const screens={
- profiles:profiles,
- home:home,
- editor:editor
-};
-function show(name){
- Object.values(screens).forEach(s=>s.style.display="none");
- screens[name].style.display="block";
-}
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+resizeCanvas();
 
-/* ================== PROFILES ================== */
-let currentProfile="";
-function getProfiles(){
- return JSON.parse(localStorage.getItem("profiles")||"[]");
-}
-function loadProfiles(){
- profileList.innerHTML="";
- getProfiles().forEach(p=>{
-  let d=document.createElement("div");
-  d.className="profile";
-  d.textContent=p;
-  d.onclick=()=>selectProfile(p);
-  profileList.appendChild(d);
- });
-}
-function createProfile(){
- let n=profileInput.value.trim();
- if(!n)return;
- let p=getProfiles();
- p.push(n);
- localStorage.setItem("profiles",JSON.stringify(p));
- localStorage.setItem("data_"+n,JSON.stringify({images:[],saved:[]}));
- profileInput.value="";
- loadProfiles();
-}
-function selectProfile(p){
- currentProfile=p;
- profileTitle.textContent=p;
- loadHome();
- show("home");
-}
-function goProfiles(){show("profiles");}
+let currentTool = "brush";
+let currentColor = "#ff0000";
+let drawing = false;
+let undoStack = [];
 
-/* ================== HOME ================== */
-const baseImages=["images/1.png","images/2.png","images/3.png"];
+const colors = [
+  "#000000","#ffffff","#ff0000","#00ff00","#0000ff","#ffff00",
+  "#ff00ff","#00ffff","#ff9800","#795548","#9c27b0","#607d8b"
+];
 
-function loadHome(){
- gallery.innerHTML="";
- savedGallery.innerHTML="";
- let data=JSON.parse(localStorage.getItem("data_"+currentProfile));
-
- [...baseImages,...data.images].forEach(src=>{
-  let i=new Image();
-  i.src=src;
-  i.onclick=()=>openImage(src);
-  gallery.appendChild(i);
- });
-
- data.saved.forEach(src=>{
-  let i=new Image();
-  i.src=src;
-  i.onclick=()=>openImage(src);
-  savedGallery.appendChild(i);
- });
-}
-
-function addImage(inp){
- let r=new FileReader();
- r.onload=e=>{
-  let d=JSON.parse(localStorage.getItem("data_"+currentProfile));
-  d.images.push(e.target.result);
-  localStorage.setItem("data_"+currentProfile,JSON.stringify(d));
-  loadHome();
- };
- r.readAsDataURL(inp.files[0]);
-}
-
-/* ================== EDITOR ================== */
-const canvas=document.getElementById("canvas");
-const ctx=canvas.getContext("2d");
-let tool="brush";
-let drawing=false;
-let color="#000";
-let undoStack=[];
-
-/* size */
-size.oninput=e=>ctx.lineWidth=e.target.value;
-
-/* colors */
-const colorList=["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"];
-colorList.forEach(c=>{
- let d=document.createElement("div");
- d.className="color";
- d.style.background=c;
- d.onclick=()=>{
-  document.querySelectorAll(".color").forEach(x=>x.classList.remove("active"));
-  d.classList.add("active");
-  color=c;
- };
- colors.appendChild(d);
+const colorsDiv = document.getElementById("colors");
+colors.forEach(c=>{
+  const d=document.createElement("div");
+  d.className="color";
+  d.style.background=c;
+  d.onclick=()=>{
+    document.querySelectorAll(".color").forEach(x=>x.classList.remove("selected"));
+    d.classList.add("selected");
+    currentColor=c;
+    document.getElementById("colorSound").play();
+  };
+  colorsDiv.appendChild(d);
 });
+colorsDiv.firstChild.classList.add("selected");
 
-/* draw */
-canvas.onmousedown=e=>{
- drawing=true;
- ctx.beginPath();
- ctx.moveTo(e.offsetX,e.offsetY);
- undoStack.push(canvas.toDataURL());
-};
-canvas.onmousemove=e=>{
- if(!drawing)return;
- if(tool==="brush"){
-  ctx.strokeStyle=color;
-  ctx.lineCap="round";
-  ctx.lineTo(e.offsetX,e.offsetY);
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight - 160;
+}
+
+window.addEventListener("resize", resizeCanvas);
+
+function saveState(){
+  undoStack.push(canvas.toDataURL());
+  if(undoStack.length>20) undoStack.shift();
+}
+
+canvas.addEventListener("mousedown", startDraw);
+canvas.addEventListener("mousemove", draw);
+canvas.addEventListener("mouseup", stopDraw);
+
+canvas.addEventListener("touchstart", e=>{
+  startDraw(e.touches[0]);
+});
+canvas.addEventListener("touchmove", e=>{
+  draw(e.touches[0]);
+  e.preventDefault();
+});
+canvas.addEventListener("touchend", stopDraw);
+
+function startDraw(e){
+  saveState();
+  drawing = true;
+  ctx.beginPath();
+  ctx.moveTo(e.clientX, e.clientY - 160);
+}
+
+function draw(e){
+  if(!drawing) return;
+  ctx.lineWidth = 12;
+  ctx.lineCap = "round";
+
+  if(currentTool==="eraser"){
+    ctx.globalCompositeOperation="destination-out";
+    ctx.strokeStyle="rgba(0,0,0,1)";
+  }else{
+    ctx.globalCompositeOperation="source-over";
+    ctx.strokeStyle=currentColor;
+  }
+
+  ctx.lineTo(e.clientX, e.clientY - 160);
   ctx.stroke();
- }
- if(tool==="eraser"){
-  ctx.clearRect(e.offsetX-ctx.lineWidth/2,e.offsetY-ctx.lineWidth/2,ctx.lineWidth,ctx.lineWidth);
- }
-};
-canvas.onmouseup=()=>drawing=false;
+  document.getElementById("paintSound").play();
+}
 
-canvas.onclick=e=>{
- if(tool!=="bucket")return;
- bucketFill(e.offsetX,e.offsetY);
-};
+function stopDraw(){
+  drawing=false;
+  ctx.closePath();
+}
 
-function bucketFill(x,y){
- let img=ctx.getImageData(0,0,canvas.width,canvas.height);
- let d=img.data;
- let i=(y*canvas.width+x)*4;
- let target=d.slice(i,i+4);
- let fill=hex(color);
- if(match(target,fill))return;
+document.getElementById("brushBtn").onclick=()=>setTool("brush");
+document.getElementById("eraserBtn").onclick=()=>setTool("eraser");
+document.getElementById("bucketBtn").onclick=()=>setTool("bucket");
 
- let stack=[[x,y]];
- while(stack.length){
-  let [cx,cy]=stack.pop();
-  if(cx<0||cy<0||cx>=canvas.width||cy>=canvas.height)continue;
-  let ii=(cy*canvas.width+cx)*4;
-  if(match(d.slice(ii,ii+4),target)){
-   d[ii]=fill[0];d[ii+1]=fill[1];d[ii+2]=fill[2];d[ii+3]=255;
-   stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+function setTool(t){
+  currentTool=t;
+  document.querySelectorAll("#topBar button").forEach(b=>b.classList.remove("active"));
+  if(t==="brush") brushBtn.classList.add("active");
+  if(t==="eraser") eraserBtn.classList.add("active");
+  if(t==="bucket") bucketBtn.classList.add("active");
+}
+
+document.getElementById("undoBtn").onclick=()=>{
+  if(undoStack.length){
+    let img=new Image();
+    img.src=undoStack.pop();
+    img.onload=()=>ctx.drawImage(img,0,0);
   }
- }
- ctx.putImageData(img,0,0);
-}
+};
 
-function enhance(){
- let img=ctx.getImageData(0,0,canvas.width,canvas.height);
- let d=img.data;
- for(let i=0;i<d.length;i+=4){
-  if(d[i]<240||d[i+1]<240||d[i+2]<240){
-   d[i]=0;d[i+1]=0;d[i+2]=0;
+document.getElementById("blankBtn").onclick=()=>{
+  if(confirm("هتبدأ لوحة فاضية؟")){
+    saveState();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
   }
- }
- ctx.putImageData(img,0,0);
- alert("تم تحسين الحواف");
-}
+};
 
-function hex(h){
- let c=parseInt(h.slice(1),16);
- return[(c>>16)&255,(c>>8)&255,c&255,255];
-}
-function match(a,b){
- return a[0]==b[0]&&a[1]==b[1]&&a[2]==b[2];
-}
+document.getElementById("saveBtn").onclick=()=>{
+  if(confirm("تحب تحفظ الصورة؟")){
+    const link=document.createElement("a");
+    link.download="colored.png";
+    link.href=canvas.toDataURL();
+    link.click();
+    document.getElementById("finishSound").play();
+  }
+};
 
-/* editor actions */
-function undo(){
- if(!undoStack.length)return;
- let img=new Image();
- img.src=undoStack.pop();
- img.onload=()=>ctx.drawImage(img,0,0);
-}
-function save(){
- let d=JSON.parse(localStorage.getItem("data_"+currentProfile));
- d.saved.push(canvas.toDataURL());
- localStorage.setItem("data_"+currentProfile,JSON.stringify(d));
- alert("تم الحفظ");
-}
-function openImage(src){
- show("editor");
- let img=new Image();
- img.src=src;
- img.onload=()=>{
-  canvas.width=img.width;
-  canvas.height=img.height;
-  ctx.drawImage(img,0,0);
- };
-}
-function openBlank(){
- show("editor");
- canvas.width=600;
- canvas.height=600;
- ctx.fillStyle="#fff";
- ctx.fillRect(0,0,600,600);
-}
-function backHome(){
- if(confirm("الخروج بدون حفظ؟")){
-  show("home");
- }
-}
-
-/* ================== START ================== */
-loadProfiles();
-show("profiles");
+// Gallery
+const gallery=document.getElementById("gallery");
+["1.png","2.png","3.png"].forEach(n=>{
+  const img=document.createElement("img");
+  img.src="images/"+n;
+  img.onclick=()=>{
+    saveState();
+    const im=new Image();
+    im.src=img.src;
+    im.onload=()=>{
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(im,0,0,canvas.width,canvas.height);
+    };
+  };
+  gallery.appendChild(img);
+});
 </script>
 
 </body>
