@@ -1,515 +1,151 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>لوحة تلوين متكاملة</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-<style>
-  body {
-    margin:0; padding:0; font-family: Arial, sans-serif;
-    background:#222; color:#fff;
-    display:flex; flex-direction: column; height: 100vh;
-  }
-  #profiles, #home, #editor { display:none; flex-direction: column; height: 100%; }
-  #profiles.active, #home.active, #editor.active { display:flex; }
-  
-  /* Profiles */
-  #profileList {
-    padding: 10px;
-    overflow-y: auto;
-    flex:1;
-  }
-  .profile {
-    background: #333; margin:8px; padding:12px; border-radius:8px;
-    cursor:pointer; text-align:center; user-select:none;
-  }
-  
-  /* Home */
-  #gallery, #savedGallery {
-    display: flex; flex-wrap: wrap; gap: 10px; padding:10px; overflow-y: auto; flex:1;
-  }
-  #gallery img, #savedGallery img {
-    width: 100px; height: 100px; object-fit: contain;
-    border-radius: 10px; cursor: pointer; border: 2px solid transparent;
-  }
-  #gallery img.selected, #savedGallery img.selected {
-    border-color: #0af;
-  }
-  
-  /* Editor */
-  #top {
-    background:#111; padding:8px; display:flex; gap:8px; flex-wrap: wrap; user-select:none;
-  }
-  button {
-    flex: 1; background:#333; border:none; color:#fff;
-    border-radius: 6px; padding: 8px 12px; font-size: 14px;
-    cursor:pointer;
-  }
-  button:active {
-    background:#555;
-  }
-  
-  #canvasContainer {
-    flex: 1; background: #333; margin: 8px; position: relative;
-    overflow: hidden;
-    touch-action: none;
-    border-radius: 10px;
-  }
-  canvas {
-    border-radius: 10px;
-  }
-  
-  #tools {
-    background:#111; padding:8px; display:flex; flex-wrap: wrap; gap: 8px; justify-content: center;
-  }
-  
-  #colors {
-    display: grid; grid-template-columns: repeat(8, 28px); gap: 8px;
-    justify-content: center; align-items: center;
-  }
-  .color {
-    width: 28px; height: 28px; border-radius: 50%; border: 2px solid #555;
-    cursor: pointer;
-  }
-  .color.active {
-    border: 3px solid #0af;
-    transform: translateY(-2px);
-  }
-  
-  input[type=range] {
-    width: 100px;
-    vertical-align: middle;
-  }
-  
-  /* Scrollbars */
-  #profileList::-webkit-scrollbar, #gallery::-webkit-scrollbar, #savedGallery::-webkit-scrollbar {
-    width: 6px;
-  }
-  #profileList::-webkit-scrollbar-thumb, #gallery::-webkit-scrollbar-thumb, #savedGallery::-webkit-scrollbar-thumb {
-    background-color: #555; border-radius: 3px;
-  }
-</style>
-
-</head>
-<body>
-
-<!-- ====== PROFILES SCREEN ====== -->
-<div id="profiles" class="active">
-  <h2 style="text-align:center; padding:8px 0; border-bottom:1px solid #555;">اختر بروفايل</h2>
-  <div id="profileList"></div>
-  <input id="profileInput" placeholder="اسم بروفايل جديد" style="padding:8px 10px; margin:10px; border-radius:8px; border:none; width: calc(100% - 40px);"/>
-  <button onclick="createProfile()">إنشاء بروفايل جديد</button>
-</div>
-
-<!-- ====== HOME SCREEN ====== -->
-<div id="home">
-  <h2 style="text-align:center; padding:10px 0; border-bottom:1px solid #555;" id="profileTitle"></h2>
-  
-  <div style="display:flex; justify-content:center; gap:10px; flex-wrap: wrap; padding:10px;">
-    <button onclick="openBlank()">🖌️ لوحة فاضية</button>
-    <input type="file" id="imageLoader" accept="image/*" style="display:none" onchange="addImage(event)" />
-    <button onclick="document.getElementById('imageLoader').click()">➕ إضافة صورة جديدة</button>
-    <button onclick="goProfiles()">تغيير بروفايل</button>
-  </div>
-  
-  <h3 style="margin:10px 10px 5px;">الصور الأساسية</h3>
-  <div id="gallery"></div>
-  
-  <h3 style="margin:10px 10px 5px;">الألبوم (المحفوظات)</h3>
-  <div id="savedGallery"></div>
-</div>
-
-<!-- ====== EDITOR SCREEN ====== -->
-<div id="editor">
-  <div id="top">
-    <button onclick="backHome()">🏠</button>
-    <button onclick="undo()">↩️ تراجع</button>
-    <button onclick="redo()">↪️ إعادة</button>
-    <button onclick="setTool('brush')">🖌️ فرشة</button>
-    <button onclick="setTool('bucket')">🪣 بوكت</button>
-    <button onclick="setTool('eraser')">🧽 ممحاة</button>
-    <button onclick="enhance()">✨ تحسين الحواف</button>
-    <button onclick="zoom(1.1)">➕ زوم</button>
-    <button onclick="zoom(0.9)">➖ زوم</button>
-    <button onclick="save()">💾 حفظ</button>
-  </div>
-  
-  <div id="canvasContainer">
-    <canvas id="canvas"></canvas>
-  </div>
-  
-  <div id="tools">
-    <div id="colors"></div>
-    <label>حجم الفرشة: <input type="range" min="2" max="40" value="10" id="size"></label>
-  </div>
-</div>
+<title>لوحة تلوين</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #f2f2f2;
+}
+
+#toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: #fff;
+  border-bottom: 1px solid #ccc;
+  flex-wrap: wrap;
+}
+
+button, input[type=color] {
+  padding: 6px;
+  font-size: 14px;
+}
+
+#canvasWrapper {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 70px);
+  background: #999;
+  overflow: hidden;
+}
+
+canvas {
+  background: white;
+  display: block;
+}
+</style>
+</head>
+
+<body>
+
+<div id="toolbar">
+  <button onclick="setBrush()">فرشة</button>
+  <button onclick="setEraser()">ممحاة</button>
+  <button onclick="setBucket()">بوكت</button>
+  <button onclick="clearCanvas()">لوحة فاضية</button>
+  <input type="color" id="colorPicker" value="#ff0000">
+</div>
+
+<div id="canvasWrapper">
+  <canvas id="c"></canvas>
+</div>
+
 <script>
-(() => {
-  // عناصر الواجهة
-  const profilesScreen = document.getElementById("profiles");
-  const homeScreen = document.getElementById("home");
-  const editorScreen = document.getElementById("editor");
-  const profileList = document.getElementById("profileList");
-  const profileInput = document.getElementById("profileInput");
-  const profileTitle = document.getElementById("profileTitle");
-  const gallery = document.getElementById("gallery");
-  const savedGallery = document.getElementById("savedGallery");
-  const colorsContainer = document.getElementById("colors");
-  const sizeInput = document.getElementById("size");
-  
-  let currentProfile = null;
-  let fabricCanvas = null;
-  let currentTool = "brush";
-  let currentColor = "#000000";
-  let undoStack = [];
-  let redoStack = [];
-  
-  // ألوان جاهزة
-  const colorList = ["#000000","#ff0000","#00ff00","#0000ff","#ffff00","#00ffff","#ff00ff","#ffa500","#8a2be2","#964b00","#ffffff","#888888"];
-  
-  // تحميل البروفايلات من LocalStorage
-  function getProfiles() {
-    return JSON.parse(localStorage.getItem("profiles")||"[]");
-  }
-  
-  // حفظ البروفايلات
-  function saveProfiles(profiles) {
-    localStorage.setItem("profiles", JSON.stringify(profiles));
-  }
-  
-  // تحميل بيانات البروفايل
-  function getProfileData(name) {
-    return JSON.parse(localStorage.getItem("data_"+name) || '{"images":[], "saved":[]}');
-  }
-  
-  // حفظ بيانات البروفايل
-  function saveProfileData(name, data) {
-    localStorage.setItem("data_"+name, JSON.stringify(data));
-  }
-  
-  // عرض قائمة البروفايلات
-  function loadProfiles() {
-    profileList.innerHTML = "";
-    const profiles = getProfiles();
-    profiles.forEach(p => {
-      const div = document.createElement("div");
-      div.className = "profile";
-      div.textContent = p;
-      div.onclick = () => selectProfile(p);
-      profileList.appendChild(div);
-    });
-  }
-  
-  // إنشاء بروفايل جديد
-  window.createProfile = () => {
-    const name = profileInput.value.trim();
-    if(!name) return alert("اكتب اسم البروفايل");
-    let profiles = getProfiles();
-    if(profiles.includes(name)) return alert("البروفايل موجود بالفعل");
-    profiles.push(name);
-    saveProfiles(profiles);
-    saveProfileData(name, {images:[], saved:[]});
-    profileInput.value = "";
-    loadProfiles();
-  };
-  
-  // اختيار بروفايل
-  function selectProfile(name) {
-    currentProfile = name;
-    profileTitle.textContent = name;
-    loadHome();
-    showScreen("home");
-  }
-  
-  window.goProfiles = () => {
-    showScreen("profiles");
-  };
-  
-  // تحميل الصور الأساسية من فولدر images
-  const baseImages = ["images/1.png","images/2.png","images/3.png"];
-  
-  // تحميل معرض الصور و المحفوظات
-  function loadHome() {
-    gallery.innerHTML = "";
-    savedGallery.innerHTML = "";
-    const data = getProfileData(currentProfile);
-    
-    [...baseImages, ...data.images].forEach(src => {
-      const img = document.createElement("img");
-      img.src = src;
-      img.onclick = () => openImage(src);
-      gallery.appendChild(img);
-    });
-    
-    data.saved.forEach(src => {
-      const img = document.createElement("img");
-      img.src = src;
-      img.onclick = () => openImage(src);
-      savedGallery.appendChild(img);
-    });
-  }
-  
-  // إضافة صورة جديدة
-  window.addImage = e => {
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const data = getProfileData(currentProfile);
-      data.images.push(evt.target.result);
-      saveProfileData(currentProfile, data);
-      loadHome();
-    };
-    reader.readAsDataURL(file);
-  };
-  
-  // عرض شاشة محددة
-  function showScreen(name) {
-    profilesScreen.classList.remove("active");
-    homeScreen.classList.remove("active");
-    editorScreen.classList.remove("active");
-    if(name === "profiles") profilesScreen.classList.add("active");
-    else if(name === "home") homeScreen.classList.add("active");
-    else if(name === "editor") editorScreen.classList.add("active");
-  }
-  
-  // إعداد Fabric.js
-  function initFabric() {
-    fabricCanvas = new fabric.Canvas('canvas', {
-      isDrawingMode: true,
-      backgroundColor: '#fff',
-      selection: false,
-      preserveObjectStacking: true
-    });
-    
-    fabricCanvas.freeDrawingBrush.width = sizeInput.value;
-    fabricCanvas.freeDrawingBrush.color = currentColor;
-    
-    fabricCanvas.on('path:created', function() {
-      saveState();
-    });
-    
-    // لمسات الزوم والتحريك بالإصبع
-    fabricCanvas.on('touch:gesture', function(opt) {
-      if(opt.e.touches && opt.e.touches.length === 2) {
-        const scale = fabricCanvas.getZoom() * opt.self.scale;
-        fabricCanvas.setZoom(Math.min(Math.max(scale, 1), 4));
-        opt.e.preventDefault();
-      }
-    });
-    
-    fabricCanvas.on('touch:drag', function(opt) {
-      if(opt.e.touches && opt.e.touches.length === 2) {
-        fabricCanvas.relativePan(new fabric.Point(opt.self.deltaX, opt.self.deltaY));
-        opt.e.preventDefault();
-      }
-    });
-  }
-  
-  // حفظ حالة التراجع
-  function saveState() {
-    redoStack = [];
-    const json = fabricCanvas.toJSON();
-    undoStack.push(json);
-    if(undoStack.length > 50) undoStack.shift(); // حد للتراجع
-  }
-  
-  // التراجع
-  window.undo = () => {
-    if(undoStack.length < 2) return;
-    redoStack.push(undoStack.pop());
-    const lastState = undoStack[undoStack.length - 1];
-    fabricCanvas.loadFromJSON(lastState, () => {
-      fabricCanvas.renderAll();
-    });
-  };
-  
-  // إعادة التراجع
-  window.redo = () => {
-    if(redoStack.length === 0) return;
-    const state = redoStack.pop();
-    undoStack.push(state);
-    fabricCanvas.loadFromJSON(state, () => {
-      fabricCanvas.renderAll();
-    });
-  };
-  
-  // ضبط أداة الرسم
-  window.setTool = tool => {
-    currentTool = tool;
-    if(tool === "brush") {
-      fabricCanvas.isDrawingMode = true;
-      fabricCanvas.freeDrawingBrush.color = currentColor;
-      fabricCanvas.freeDrawingBrush.width = sizeInput.value;
-      fabricCanvas.selection = false;
-      fabricCanvas.off('mouse:down', eraserHandler);
-      fabricCanvas.off('mouse:down', bucketHandler);
-    } else if(tool === "eraser") {
-      fabricCanvas.isDrawingMode = false;
-      fabricCanvas.selection = false;
-      fabricCanvas.off('mouse:down', bucketHandler);
-      fabricCanvas.off('mouse:down', eraserHandler);
-      fabricCanvas.on('mouse:down', eraserHandler);
-    } else if(tool === "bucket") {
-      fabricCanvas.isDrawingMode = false;
-      fabricCanvas.selection = false;
-      fabricCanvas.off('mouse:down', eraserHandler);
-      fabricCanvas.off('mouse:down', bucketHandler);
-      fabricCanvas.on('mouse:down', bucketHandler);
+let canvas;
+let currentTool = "brush";
+
+function initCanvas() {
+  const wrapper = document.getElementById("canvasWrapper");
+
+  canvas = new fabric.Canvas("c", {
+    isDrawingMode: true,
+    selection: false
+  });
+
+  canvas.setWidth(wrapper.clientWidth);
+  canvas.setHeight(wrapper.clientHeight);
+
+  canvas.backgroundColor = "white";
+  canvas.renderAll();
+
+  canvas.freeDrawingBrush.width = 6;
+  canvas.freeDrawingBrush.color =
+    document.getElementById("colorPicker").value;
+
+  // Zoom بالاصابع
+  canvas.on("mouse:wheel", function(opt) {
+    let zoom = canvas.getZoom();
+    zoom *= 0.999 ** opt.e.deltaY;
+    zoom = Math.min(Math.max(zoom, 0.5), 4);
+    canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+    opt.e.preventDefault();
+    opt.e.stopPropagation();
+  });
+
+  // تغيير اللون
+  document.getElementById("colorPicker").oninput = e => {
+    if (canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = e.target.value;
     }
   };
-  
-  // معالج الممحاة
-  function eraserHandler(opt) {
-    if(currentTool !== "eraser") return;
-    const target = opt.target;
-    if(target && target.type === 'path') {
-      fabricCanvas.remove(target);
-      saveState();
+}
+
+function setBrush() {
+  currentTool = "brush";
+  canvas.isDrawingMode = true;
+}
+
+function setEraser() {
+  currentTool = "eraser";
+  canvas.isDrawingMode = false;
+
+  canvas.on("mouse:down", function(opt) {
+    if (currentTool !== "eraser") return;
+    const obj = canvas.findTarget(opt.e);
+    if (obj && obj !== canvas.backgroundImage) {
+      canvas.remove(obj);
     }
-  }
-  
-  // معالج البوكت (تلوين path مختارة)
-  function bucketHandler(opt) {
-    if(currentTool !== "bucket") return;
-    const pointer = fabricCanvas.getPointer(opt.e);
-    let found = null;
-    fabricCanvas.forEachObject(obj => {
-      if(obj.type === 'path' && obj.containsPoint(pointer)) {
-        found = obj;
-      }
-    });
-    if(found) {
-      found.set({fill: currentColor});
-      fabricCanvas.renderAll();
-      saveState();
+  });
+}
+
+function setBucket() {
+  currentTool = "bucket";
+  canvas.isDrawingMode = false;
+
+  canvas.on("mouse:down", function(opt) {
+    if (currentTool !== "bucket") return;
+    const obj = canvas.findTarget(opt.e);
+    if (obj && obj.fill) {
+      obj.set("fill", document.getElementById("colorPicker").value);
+      canvas.renderAll();
     }
-  }
-  
-  // تحسين الحواف (تظليل paths بشكل أفضل)
-  window.enhance = () => {
-    fabricCanvas.forEachObject(obj => {
-      if(obj.type === 'path') {
-        obj.set({strokeWidth: 2});
-      }
-    });
-    fabricCanvas.renderAll();
-    alert("تم تحسين الحواف");
-  };
-  
-  // زوم مع تحريك
-  let zoomLevel = 1;
-  
-  window.zoom = factor => {
-    zoomLevel *= factor;
-    zoomLevel = Math.min(Math.max(zoomLevel, 1), 4);
-    fabricCanvas.setZoom(zoomLevel);
-  };
-  
-  // ضبط حجم الكانفس ليتوافق مع الحاوية
-  function resizeCanvas() {
-    const container = document.getElementById("canvasContainer");
-    fabricCanvas.setWidth(container.clientWidth);
-    fabricCanvas.setHeight(container.clientHeight);
-    fabricCanvas.renderAll();
-  }
-  
-  // حفظ الصورة الحالية في الألبوم
-  window.save = () => {
-    const dataURL = fabricCanvas.toDataURL({format:"png"});
-    const data = getProfileData(currentProfile);
-    data.saved.push(dataURL);
-    saveProfileData(currentProfile, data);
-    loadHome();
-    alert("تم الحفظ في الألبوم");
-  };
-  
-  // فتح صورة في المحرر مع ضبط الحجم بدون شاشة سوداء
-  function openImage(src) {
-    fabric.Image.fromURL(src, img => {
-      fabricCanvas.clear();
-      resizeCanvas();  // تأكد من ضبط حجم الكانفس قبل الخلفية
-      const scaleX = fabricCanvas.width / img.width;
-      const scaleY = fabricCanvas.height / img.height;
-      const scale = Math.min(scaleX, scaleY);
-      img.scale(scale);
-      fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas), {
-        originX: 'left',
-        originY: 'top',
-        left: 0,
-        top: 0,
-      });
-      undoStack = [];
-      redoStack = [];
-      saveState();
-      showScreen("editor");
-    }, {crossOrigin: 'anonymous'});
-  }
-  
-  // فتح لوحة فاضية (خلفية بيضاء مع حذف كل العناصر)
-  window.openBlank = () => {
-    fabricCanvas.clear();
-    resizeCanvas();
-    fabricCanvas.setBackgroundColor("#fff", fabricCanvas.renderAll.bind(fabricCanvas));
-    undoStack = [];
-    redoStack = [];
-    saveState();
-    showScreen("editor");
-  };
-  
-  // الرجوع للشاشة الرئيسية
-  window.backHome = () => {
-    if(confirm("هل تريد الخروج بدون حفظ؟")) {
-      showScreen("home");
-    }
-  };
-  
-  // إنشاء ألوان في الأدوات
-  function loadColors() {
-    colorsContainer.innerHTML = "";
-    colorList.forEach(c => {
-      const div = document.createElement("div");
-      div.className = "color";
-      div.style.backgroundColor = c;
-      div.onclick = () => {
-        document.querySelectorAll(".color").forEach(x => x.classList.remove("active"));
-        div.classList.add("active");
-        currentColor = c;
-        if(currentTool === "brush") {
-          fabricCanvas.freeDrawingBrush.color = currentColor;
-        }
-      };
-      colorsContainer.appendChild(div);
-    });
-    colorsContainer.firstChild.classList.add("active");
-  }
-  
-  // ضبط حجم الفرشة عند التغيير
-  sizeInput.oninput = () => {
-    if(currentTool === "brush") {
-      fabricCanvas.freeDrawingBrush.width = parseInt(sizeInput.value,10);
-    }
-  };
-  
-  // بدء التشغيل
-  function start() {
-    loadProfiles();
-    showScreen("profiles");
-    initFabric();
-    loadColors();
-    resizeCanvas();
-    setTool("brush");
-    
-    // تحديث حجم الكانفس عند تغير حجم الشاشة
-    window.addEventListener("resize", resizeCanvas);
-  }
-  
-  start();
-  
-})();
+  });
+}
+
+function clearCanvas() {
+  canvas.clear();
+  canvas.backgroundColor = "white";
+  canvas.renderAll();
+}
+
+// تحميل صورة
+function loadImage(src) {
+  fabric.Image.fromURL(src, img => {
+    clearCanvas();
+    img.scaleToWidth(canvas.width);
+    canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+  }, { crossOrigin: "anonymous" });
+}
+
+window.onload = initCanvas;
 </script>
 
 </body>
