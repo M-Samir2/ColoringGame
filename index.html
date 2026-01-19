@@ -132,6 +132,7 @@
     <button onclick="enhance()">✨ تحسين الحواف</button>
     <button onclick="zoom(1.1)">➕ زوم</button>
     <button onclick="zoom(0.9)">➖ زوم</button>
+    <button onclick="save()">💾 حفظ</button>
   </div>
   
   <div id="canvasContainer">
@@ -290,6 +291,22 @@
     fabricCanvas.on('path:created', function() {
       saveState();
     });
+    
+    // لمسات الزوم والتحريك بالإصبع
+    fabricCanvas.on('touch:gesture', function(opt) {
+      if(opt.e.touches && opt.e.touches.length === 2) {
+        const scale = fabricCanvas.getZoom() * opt.self.scale;
+        fabricCanvas.setZoom(Math.min(Math.max(scale, 1), 4));
+        opt.e.preventDefault();
+      }
+    });
+    
+    fabricCanvas.on('touch:drag', function(opt) {
+      if(opt.e.touches && opt.e.touches.length === 2) {
+        fabricCanvas.relativePan(new fabric.Point(opt.self.deltaX, opt.self.deltaY));
+        opt.e.preventDefault();
+      }
+    });
   }
   
   // حفظ حالة التراجع
@@ -328,10 +345,12 @@
       fabricCanvas.freeDrawingBrush.color = currentColor;
       fabricCanvas.freeDrawingBrush.width = sizeInput.value;
       fabricCanvas.selection = false;
+      fabricCanvas.off('mouse:down', eraserHandler);
+      fabricCanvas.off('mouse:down', bucketHandler);
     } else if(tool === "eraser") {
       fabricCanvas.isDrawingMode = false;
       fabricCanvas.selection = false;
-      // الممحاة بتحذف paths اللي بنقر عليها
+      fabricCanvas.off('mouse:down', bucketHandler);
       fabricCanvas.off('mouse:down', eraserHandler);
       fabricCanvas.on('mouse:down', eraserHandler);
     } else if(tool === "bucket") {
@@ -357,7 +376,6 @@
   function bucketHandler(opt) {
     if(currentTool !== "bucket") return;
     const pointer = fabricCanvas.getPointer(opt.e);
-    // نبحث عن أول path داخل منطقة النقر
     let found = null;
     fabricCanvas.forEachObject(obj => {
       if(obj.type === 'path' && obj.containsPoint(pointer)) {
@@ -384,40 +402,19 @@
   
   // زوم مع تحريك
   let zoomLevel = 1;
-  let isPanning = false;
-  let lastPosX = 0;
-  let lastPosY = 0;
   
-  function zoom(factor) {
+  window.zoom = factor => {
     zoomLevel *= factor;
     zoomLevel = Math.min(Math.max(zoomLevel, 1), 4);
     fabricCanvas.setZoom(zoomLevel);
-  }
+  };
   
-  function panStart(opt) {
-    const evt = opt.e;
-    if(evt.touches && evt.touches.length === 2) {
-      isPanning = true;
-      lastPosX = (evt.touches[0].clientX + evt.touches[1].clientX)/2;
-      lastPosY = (evt.touches[0].clientY + evt.touches[1].clientY)/2;
-    }
-  }
-  function panMove(opt) {
-    if(!isPanning) return;
-    const evt = opt.e;
-    if(evt.touches && evt.touches.length === 2) {
-      const currentX = (evt.touches[0].clientX + evt.touches[1].clientX)/2;
-      const currentY = (evt.touches[0].clientY + evt.touches[1].clientY)/2;
-      const deltaX = currentX - lastPosX;
-      const deltaY = currentY - lastPosY;
-      lastPosX = currentX;
-      lastPosY = currentY;
-      
-      fabricCanvas.relativePan(new fabric.Point(deltaX, deltaY));
-    }
-  }
-  function panEnd() {
-    isPanning = false;
+  // ضبط حجم الكانفس ليتوافق مع الحاوية
+  function resizeCanvas() {
+    const container = document.getElementById("canvasContainer");
+    fabricCanvas.setWidth(container.clientWidth);
+    fabricCanvas.setHeight(container.clientHeight);
+    fabricCanvas.renderAll();
   }
   
   // حفظ الصورة الحالية في الألبوم
@@ -430,15 +427,20 @@
     alert("تم الحفظ في الألبوم");
   };
   
-  // فتح صورة في المحرر
+  // فتح صورة في المحرر مع ضبط الحجم بدون شاشة سوداء
   function openImage(src) {
     fabric.Image.fromURL(src, img => {
       fabricCanvas.clear();
+      resizeCanvas();  // تأكد من ضبط حجم الكانفس قبل الخلفية
+      const scaleX = fabricCanvas.width / img.width;
+      const scaleY = fabricCanvas.height / img.height;
+      const scale = Math.min(scaleX, scaleY);
+      img.scale(scale);
       fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas), {
-        scaleX: fabricCanvas.width / img.width,
-        scaleY: fabricCanvas.height / img.height,
         originX: 'left',
         originY: 'top',
+        left: 0,
+        top: 0,
       });
       undoStack = [];
       redoStack = [];
@@ -447,9 +449,10 @@
     }, {crossOrigin: 'anonymous'});
   }
   
-  // فتح اللوحة الفاضية
+  // فتح لوحة فاضية (خلفية بيضاء مع حذف كل العناصر)
   window.openBlank = () => {
     fabricCanvas.clear();
+    resizeCanvas();
     fabricCanvas.setBackgroundColor("#fff", fabricCanvas.renderAll.bind(fabricCanvas));
     undoStack = [];
     redoStack = [];
@@ -484,19 +487,12 @@
     colorsContainer.firstChild.classList.add("active");
   }
   
-  // ضبط حجم الفرشة
+  // ضبط حجم الفرشة عند التغيير
   sizeInput.oninput = () => {
     if(currentTool === "brush") {
       fabricCanvas.freeDrawingBrush.width = parseInt(sizeInput.value,10);
     }
   };
-  
-  // حجم الكانفس وتهيئة fabric
-  function resizeCanvas() {
-    const container = document.getElementById("canvasContainer");
-    fabricCanvas.setWidth(container.clientWidth);
-    fabricCanvas.setHeight(container.clientHeight);
-  }
   
   // بدء التشغيل
   function start() {
@@ -507,28 +503,12 @@
     resizeCanvas();
     setTool("brush");
     
-    // أحداث لمس الزوم والتحريك
-    fabricCanvas.on('touch:gesture', function(opt) {
-      if(opt.e.touches && opt.e.touches.length === 2) {
-        const scale = fabricCanvas.getZoom() * opt.self.scale;
-        fabricCanvas.setZoom(Math.min(Math.max(scale, 1), 4));
-        opt.e.preventDefault();
-      }
-    });
-    
-    fabricCanvas.on('touch:drag', function(opt) {
-      if(opt.e.touches && opt.e.touches.length === 2) {
-        fabricCanvas.relativePan(new fabric.Point(opt.self.deltaX, opt.self.deltaY));
-        opt.e.preventDefault();
-      }
-    });
-    
-    window.addEventListener('resize', () => {
-      resizeCanvas();
-    });
+    // تحديث حجم الكانفس عند تغير حجم الشاشة
+    window.addEventListener("resize", resizeCanvas);
   }
   
   start();
+  
 })();
 </script>
 
