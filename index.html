@@ -2,44 +2,55 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Coloring Game</title>
 
 <style>
-body{margin:0;font-family:Arial;background:#222;color:#fff}
-.screen{display:none;height:100vh;overflow:auto}
-button{border:none;border-radius:8px;padding:8px 10px;font-size:14px}
-h2{text-align:center;margin:10px}
+body{
+ margin:0;
+ background:#222;
+ color:#fff;
+ font-family:Arial;
+}
+.screen{display:none;height:100vh}
+button{border:none;border-radius:8px;padding:8px 12px}
+h2{text-align:center}
 
-#profiles,#home{padding:15px}
-.profile{background:#333;padding:12px;margin:8px;border-radius:8px;text-align:center}
-
+/* ===== HOME ===== */
+#home{padding:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
-.grid img{width:100%;border-radius:10px}
+.grid img{width:100%;border-radius:10px;cursor:pointer}
 
+/* ===== EDITOR ===== */
 #editor{display:flex;flex-direction:column;height:100vh}
 
-#top{display:flex;gap:6px;background:#111;padding:6px}
-#top button{flex:1}
-
-#canvasBox{
- flex:1;
- background:#444;
- overflow:auto;
+#top{
  display:flex;
- justify-content:center;
- align-items:center;
+ gap:6px;
+ padding:6px;
+ background:#111;
 }
 
 #frame{
- background:#fff;
- padding:10px;
- border-radius:10px;
+ flex:1;
+ background:#444;
+ display:flex;
+ justify-content:center;
+ align-items:center;
+ overflow:hidden;
+}
+
+#canvasFrame{
+ position:relative;
+ border:4px solid #fff;
+ background:#ccc;
+ touch-action:none;
 }
 
 canvas{
- display:block;
- touch-action:none;
+ position:absolute;
+ top:0;
+ left:0;
 }
 
 #tools{
@@ -50,17 +61,22 @@ canvas{
  gap:6px;
 }
 
-.toolsRow{display:flex;gap:6px;justify-content:center}
+.toolsRow{
+ display:flex;
+ gap:6px;
+ justify-content:center;
+}
 
 #colors{
  display:grid;
  grid-template-columns:repeat(6,1fr);
  gap:6px;
- justify-items:center;
 }
 
 .color{
- width:28px;height:28px;border-radius:50%;
+ width:28px;
+ height:28px;
+ border-radius:50%;
  border:2px solid #555;
 }
 .color.active{border:3px solid #fff}
@@ -71,130 +87,62 @@ input[type=range]{width:100%}
 
 <body>
 
-<div id="profiles" class="screen">
-<h2>اختيار بروفايل</h2>
-<div id="profileList"></div>
-<input id="profileInput" placeholder="اسم بروفايل جديد">
-<button onclick="createProfile()">إنشاء بروفايل</button>
-</div>
-
 <div id="home" class="screen">
-<h2 id="profileTitle"></h2>
+<h2>اختر صورة</h2>
 <button onclick="openBlank()">🖌️ لوحة فاضية</button>
 <input type="file" accept="image/*" onchange="addImage(this)">
-<h3>الصور</h3>
 <div class="grid" id="gallery"></div>
-<h3>المحفوظات</h3>
-<div class="grid" id="savedGallery"></div>
-<button onclick="goProfiles()">تغيير بروفايل</button>
 </div>
 
 <div id="editor" class="screen">
 <div id="top">
 <button onclick="backHome()">🏠</button>
 <button onclick="undo()">↩️</button>
-<button onclick="save()">💾</button>
+<button onclick="zoom(1.1)">➕</button>
+<button onclick="zoom(0.9)">➖</button>
 </div>
 
-<div id="canvasBox">
 <div id="frame">
-<canvas id="canvas"></canvas>
+<div id="canvasFrame">
+<canvas id="base"></canvas>
+<canvas id="paint"></canvas>
 </div>
 </div>
 
 <div id="tools">
 <div class="toolsRow">
-<button onclick="setTool('brush')">🖌️</button>
-<button onclick="setTool('bucket')">🪣</button>
-<button onclick="setTool('eraser')">🧽</button>
+<button onclick="tool='brush'">🖌️</button>
+<button onclick="tool='bucket'">🪣</button>
+<button onclick="tool='eraser'">🧽</button>
 </div>
 
 <input type="range" min="5" max="40" value="15" id="size">
+
 <div id="colors"></div>
 </div>
 </div>
 
 <script>
-/* ==== BASIC ==== */
-const screens={profiles,home,editor};
-function show(n){
- Object.values(screens).forEach(s=>s.style.display="none");
- screens[n].style.display="block";
-}
+const gallery=document.getElementById("gallery");
+const home=document.getElementById("home");
+const editor=document.getElementById("editor");
+const frame=document.getElementById("canvasFrame");
 
-let currentProfile="";
-function getProfiles(){return JSON.parse(localStorage.getItem("profiles")||"[]");}
+const base=document.getElementById("base");
+const paint=document.getElementById("paint");
 
-function loadProfiles(){
- profileList.innerHTML="";
- getProfiles().forEach(p=>{
-  let d=document.createElement("div");
-  d.className="profile";
-  d.textContent=p;
-  d.onclick=()=>selectProfile(p);
-  profileList.appendChild(d);
- });
-}
-function createProfile(){
- let n=profileInput.value.trim();
- if(!n)return;
- let p=getProfiles();p.push(n);
- localStorage.setItem("profiles",JSON.stringify(p));
- localStorage.setItem("data_"+n,JSON.stringify({images:[],saved:[]}));
- profileInput.value="";
- loadProfiles();
-}
-function selectProfile(p){
- currentProfile=p;
- profileTitle.textContent=p;
- loadHome();
- show("home");
-}
-function goProfiles(){show("profiles");}
+const bctx=base.getContext("2d");
+const pctx=paint.getContext("2d");
 
-/* ==== HOME ==== */
-const baseImages=["images/1.png","images/2.png","images/3.png"];
-function loadHome(){
- gallery.innerHTML="";
- savedGallery.innerHTML="";
- let data=JSON.parse(localStorage.getItem("data_"+currentProfile));
- [...baseImages,...data.images].forEach(src=>{
-  let i=new Image();
-  i.src=src;
-  i.onclick=()=>openImage(src);
-  gallery.appendChild(i);
- });
- data.saved.forEach(src=>{
-  let i=new Image();
-  i.src=src;
-  i.onclick=()=>openImage(src);
-  savedGallery.appendChild(i);
- });
-}
-function addImage(inp){
- let r=new FileReader();
- r.onload=e=>{
-  let d=JSON.parse(localStorage.getItem("data_"+currentProfile));
-  d.images.push(e.target.result);
-  localStorage.setItem("data_"+currentProfile,JSON.stringify(d));
-  loadHome();
- };
- r.readAsDataURL(inp.files[0]);
-}
+let tool="brush";
+let color="#ff0000";
+let drawing=false;
+let scale=1;
+let undoStack=[];
 
-/* ==== EDITOR ==== */
-const canvas=document.getElementById("canvas");
-const ctx=canvas.getContext("2d",{willReadFrequently:true});
-let tool="brush",drawing=false,color="#000";
-ctx.lineCap="round";
-ctx.lineJoin="round";
-
-size.oninput=e=>ctx.lineWidth=e.target.value;
-ctx.lineWidth=size.value;
-
-/* COLORS */
-const colorsArr=["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"];
-colorsArr.forEach(c=>{
+/* ===== COLORS ===== */
+["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"]
+.forEach(c=>{
  let d=document.createElement("div");
  d.className="color";
  d.style.background=c;
@@ -206,103 +154,133 @@ colorsArr.forEach(c=>{
  colors.appendChild(d);
 });
 
-function setTool(t){tool=t;}
-
-function getPos(e){
- let r=canvas.getBoundingClientRect();
- return {
-  x:Math.floor(e.clientX-r.left),
-  y:Math.floor(e.clientY-r.top)
+/* ===== LOAD IMAGE ===== */
+function openImage(src){
+ show(editor);
+ let img=new Image();
+ img.onload=()=>{
+  base.width=paint.width=img.width;
+  base.height=paint.height=img.height;
+  frame.style.width=img.width+"px";
+  frame.style.height=img.height+"px";
+  bctx.drawImage(img,0,0);
+  pctx.clearRect(0,0,paint.width,paint.height);
+  undoStack=[];
  };
+ img.src=src;
 }
 
-/* DRAW */
-canvas.addEventListener("pointerdown",e=>{
+function openBlank(){
+ show(editor);
+ let w=600,h=600;
+ base.width=paint.width=w;
+ base.height=paint.height=h;
+ frame.style.width=w+"px";
+ frame.style.height=h+"px";
+ bctx.fillStyle="#fff";
+ bctx.fillRect(0,0,w,h);
+ pctx.clearRect(0,0,w,h);
+ undoStack=[];
+}
+
+/* ===== DRAW ===== */
+paint.addEventListener("pointerdown",e=>{
  drawing=true;
- let p=getPos(e);
- ctx.beginPath();
- ctx.moveTo(p.x,p.y);
+ pctx.lineWidth=size.value;
+ pctx.lineCap="round";
+ pctx.strokeStyle=color;
+ pctx.beginPath();
+ pctx.moveTo(e.offsetX,e.offsetY);
+ undoStack.push(paint.toDataURL());
 });
-canvas.addEventListener("pointermove",e=>{
+
+paint.addEventListener("pointermove",e=>{
  if(!drawing)return;
- let p=getPos(e);
  if(tool==="brush"){
-  ctx.strokeStyle=color;
-  ctx.lineTo(p.x,p.y);
-  ctx.stroke();
+  pctx.lineTo(e.offsetX,e.offsetY);
+  pctx.stroke();
  }
  if(tool==="eraser"){
-  ctx.clearRect(p.x-ctx.lineWidth/2,p.y-ctx.lineWidth/2,ctx.lineWidth,ctx.lineWidth);
+  pctx.clearRect(e.offsetX-10,e.offsetY-10,20,20);
  }
 });
-canvas.addEventListener("pointerup",()=>drawing=false);
 
-/* SMART BUCKET */
-canvas.addEventListener("click",e=>{
+paint.addEventListener("pointerup",()=>drawing=false);
+
+paint.addEventListener("click",e=>{
  if(tool!=="bucket")return;
- let p=getPos(e);
- smartFill(p.x,p.y);
+ bucket(e.offsetX,e.offsetY);
 });
 
-function colorDist(a,b){
- return Math.sqrt(
-  (a[0]-b[0])**2 +
-  (a[1]-b[1])**2 +
-  (a[2]-b[2])**2
- );
-}
-function smartFill(x,y){
- let img=ctx.getImageData(0,0,canvas.width,canvas.height);
+/* ===== SMART BUCKET ===== */
+function bucket(x,y){
+ let img=pctx.getImageData(0,0,paint.width,paint.height);
  let d=img.data;
- let i=(y*canvas.width+x)*4;
- let target=[d[i],d[i+1],d[i+2]];
- let fill=parseInt(color.slice(1),16);
- let fr=[(fill>>16)&255,(fill>>8)&255,fill&255];
- let stack=[[x,y]],limit=500000,count=0;
+ let idx=(y*paint.width+x)*4;
+ let target=[d[idx],d[idx+1],d[idx+2],d[idx+3]];
+ let fill=hexToRGBA(color);
+ if(match(target,fill))return;
 
+ let stack=[[x,y]];
  while(stack.length){
-  if(count++>limit)break;
   let [cx,cy]=stack.pop();
-  if(cx<0||cy<0||cx>=canvas.width||cy>=canvas.height)continue;
-  let ii=(cy*canvas.width+cx)*4;
-  let cur=[d[ii],d[ii+1],d[ii+2]];
-  if(colorDist(cur,target)<45){
-   d[ii]=fr[0];d[ii+1]=fr[1];d[ii+2]=fr[2];d[ii+3]=255;
+  if(cx<0||cy<0||cx>=paint.width||cy>=paint.height)continue;
+  let i=(cy*paint.width+cx)*4;
+  if(match([d[i],d[i+1],d[i+2],d[i+3]],target)){
+   d[i]=fill[0];d[i+1]=fill[1];d[i+2]=fill[2];d[i+3]=255;
    stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
   }
  }
- ctx.putImageData(img,0,0);
+ pctx.putImageData(img,0,0);
 }
 
-/* SAVE / LOAD */
-function save(){
- let d=JSON.parse(localStorage.getItem("data_"+currentProfile));
- d.saved.push(canvas.toDataURL());
- localStorage.setItem("data_"+currentProfile,JSON.stringify(d));
- alert("تم الحفظ");
+function hexToRGBA(h){
+ let n=parseInt(h.slice(1),16);
+ return[(n>>16)&255,(n>>8)&255,n&255,255];
 }
-function openImage(src){
- show("editor");
- let i=new Image();
- i.src=src;
- i.onload=()=>{
-  canvas.width=i.width;
-  canvas.height=i.height;
-  ctx.drawImage(i,0,0);
+function match(a,b){
+ return a[0]==b[0]&&a[1]==b[1]&&a[2]==b[2];
+}
+
+/* ===== ZOOM ===== */
+function zoom(v){
+ scale*=v;
+ scale=Math.max(1,Math.min(scale,4));
+ frame.style.transform=`scale(${scale})`;
+}
+
+/* ===== UNDO ===== */
+function undo(){
+ if(!undoStack.length)return;
+ let img=new Image();
+ img.onload=()=>pctx.drawImage(img,0,0);
+ img.src=undoStack.pop();
+}
+
+/* ===== HOME ===== */
+function addImage(inp){
+ let r=new FileReader();
+ r.onload=e=>{
+  let img=new Image();
+  img.src=e.target.result;
+  img.onclick=()=>openImage(img.src);
+  gallery.appendChild(img);
  };
+ r.readAsDataURL(inp.files[0]);
 }
-function openBlank(){
- show("editor");
- canvas.width=600;
- canvas.height=600;
- ctx.fillStyle="#fff";
- ctx.fillRect(0,0,600,600);
-}
-function backHome(){show("home");}
 
-/* START */
-loadProfiles();
-show("profiles");
+function backHome(){
+ show(home);
+}
+
+/* ===== START ===== */
+function show(s){
+ home.style.display="none";
+ editor.style.display="none";
+ s.style.display="block";
+}
+show(home);
 </script>
+
 </body>
 </html>
