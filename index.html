@@ -1,310 +1,103 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>لوحة تلوين متكاملة</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>لعبة التلوين للأطفال</title>
 
-<style>
-body {
-  margin:0; padding:0; font-family: Arial, sans-serif;
-  background:#222; color:#fff;
-  display:flex; flex-direction: column; height: 100vh;
-}
-#profiles, #home, #editor { display:none; flex-direction: column; height: 100%; }
-#profiles.active, #home.active, #editor.active { display:flex; }
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
 
-#profileList { padding:10px; overflow-y:auto; flex:1; }
-.profile {
-  background:#333; margin:8px; padding:12px; border-radius:8px;
-  cursor:pointer; text-align:center;
-}
-
-#gallery, #savedGallery {
-  display:flex; flex-wrap:wrap; gap:10px;
-  padding:10px; overflow-y:auto;
-}
-#gallery img, #savedGallery img {
-  width:100px; height:100px; object-fit:contain;
-  border-radius:10px; cursor:pointer;
-}
-
-#top {
-  background:#111; padding:8px; display:flex; gap:8px; flex-wrap:wrap;
-}
-button {
-  flex:1; background:#333; border:none; color:#fff;
-  border-radius:6px; padding:8px;
-}
-#canvasContainer {
-  flex:1; background:#333; margin:8px;
-  border-radius:10px; overflow:hidden;
-  touch-action:none;
-}
-canvas { border-radius:10px; }
-
-#tools {
-  background:#111; padding:8px;
-  display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
-}
-#colors {
-  display:grid; grid-template-columns:repeat(8,28px);
-  gap:8px;
-}
-.color {
-  width:28px; height:28px; border-radius:50%;
-  border:2px solid #555; cursor:pointer;
-}
-.color.active {
-  border:3px solid #0af;
-}
-</style>
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<!-- PROFILES -->
-<div id="profiles" class="active">
-  <h2 style="text-align:center">اختيار بروفايل</h2>
-  <div id="profileList"></div>
-  <input id="profileInput" placeholder="اسم بروفايل جديد" />
-  <button onclick="createProfile()">إنشاء بروفايل</button>
-</div>
+<!-- ================= PROFILES SCREEN ================= -->
+<section id="profilesScreen" class="screen active">
+  <h2>اختيار بروفايل</h2>
 
-<!-- HOME -->
-<div id="home">
-  <h2 id="profileTitle" style="text-align:center"></h2>
-  <button onclick="openBlank()">🖌️ لوحة فاضية</button>
-  <input type="file" accept="image/*" onchange="addImage(event)">
-  <button onclick="goProfiles()">تغيير بروفايل</button>
+  <div id="profilesList"></div>
+
+  <div class="profile-actions">
+    <input id="newProfileName" placeholder="اسم بروفايل جديد">
+    <button id="createProfileBtn">➕ إنشاء بروفايل</button>
+  </div>
+</section>
+
+<!-- ================= HOME SCREEN ================= -->
+<section id="homeScreen" class="screen">
+  <h2 id="currentProfileName"></h2>
+
+  <div class="home-actions">
+    <button id="openBlankBtn">🖌️ لوحة فاضية</button>
+    <button id="addImageBtn">➕ إضافة صورة</button>
+    <button id="changeProfileBtn">👤 تغيير بروفايل</button>
+    <input type="file" id="imageInput" accept=".svg" hidden>
+  </div>
 
   <h3>الصور الأساسية</h3>
-  <div id="gallery"></div>
+  <div id="baseImages" class="gallery"></div>
 
-  <h3>الألبوم</h3>
-  <div id="savedGallery"></div>
-</div>
+  <h3>ألبوم البروفايل</h3>
+  <div id="savedImages" class="gallery"></div>
+</section>
 
-<!-- EDITOR -->
-<div id="editor">
-  <div id="top">
-    <button onclick="backHome()">🏠</button>
-    <button onclick="undo()">↩️</button>
-    <button onclick="redo()">↪️</button>
-    <button onclick="setTool('brush')">🖌️</button>
-    <button onclick="setTool('bucket')">🪣</button>
-    <button onclick="setTool('eraser')">🧽</button>
-    <button onclick="enhance()">✨</button>
-    <button onclick="zoom(1.1)">➕</button>
-    <button onclick="zoom(0.9)">➖</button>
-    <button onclick="save()">💾</button>
+<!-- ================= EDITOR SCREEN ================= -->
+<section id="editorScreen" class="screen">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <button id="backHomeBtn">🏠</button>
+    <button id="undoBtn">↩️</button>
+    <button id="redoBtn">↪️</button>
+    <button id="fullscreenBtn">⛶</button>
+    <button id="saveBtn">💾</button>
   </div>
 
-  <div id="canvasContainer">
-    <canvas id="canvas"></canvas>
+  <!-- CANVAS / SVG CONTAINER -->
+  <div id="editorContainer">
+    <!-- SVG will be injected here -->
   </div>
 
-  <div id="tools">
-    <div id="colors"></div>
-    <input type="range" min="2" max="40" value="10" id="size">
+  <!-- TOOLS -->
+  <div class="tools">
+    <div class="tool-row">
+      <button data-tool="brush">🖌️</button>
+      <button data-tool="bucket">🪣</button>
+      <button data-tool="eraser">🧽</button>
+    </div>
+
+    <div class="tool-row">
+      <button id="zoomInBtn">➕</button>
+      <button id="zoomOutBtn">➖</button>
+    </div>
+
+    <div class="tool-row">
+      <label>
+        حجم الفرشة
+        <input type="range" id="brushSize" min="2" max="40" value="10">
+      </label>
+    </div>
+
+    <div id="colorPalette"></div>
   </div>
-</div>
+</section>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
-<script>
-(() => {
+<!-- ================= SCRIPTS ================= -->
+<script src="js/storage.js"></script>
+<script src="js/profiles.js"></script>
+<script src="js/gallery.js"></script>
 
-const screens = {
-  profiles: document.getElementById("profiles"),
-  home: document.getElementById("home"),
-  editor: document.getElementById("editor")
-};
+<script src="js/tools/zoom.js"></script>
+<script src="js/tools/brush.js"></script>
+<script src="js/tools/eraser.js"></script>
+<script src="js/tools/bucket.js"></script>
 
-function showScreen(name){
-  Object.values(screens).forEach(s=>s.classList.remove("active"));
-  screens[name].classList.add("active");
-}
-
-const canvasEl = document.getElementById("canvas");
-const container = document.getElementById("canvasContainer");
-const fabricCanvas = new fabric.Canvas(canvasEl, {
-  isDrawingMode:true,
-  backgroundColor:"#fff",
-  selection:false
-});
-
-function resizeCanvas(){
-  fabricCanvas.setWidth(container.clientWidth);
-  fabricCanvas.setHeight(container.clientHeight);
-  fabricCanvas.renderAll();
-}
-
-let currentColor="#000";
-let undoStack=[], redoStack=[];
-let currentTool="brush";
-let zoomLevel=1;
-
-fabricCanvas.on("path:created", saveState);
-
-function saveState(){
-  undoStack.push(fabricCanvas.toJSON());
-  redoStack=[];
-}
-
-window.undo=()=>{
-  if(undoStack.length<2) return;
-  redoStack.push(undoStack.pop());
-  fabricCanvas.loadFromJSON(undoStack.at(-1),()=>fabricCanvas.renderAll());
-};
-
-window.redo=()=>{
-  if(!redoStack.length) return;
-  const s=redoStack.pop();
-  undoStack.push(s);
-  fabricCanvas.loadFromJSON(s,()=>fabricCanvas.renderAll());
-};
-
-window.setTool=t=>{
-  currentTool=t;
-  fabricCanvas.isDrawingMode = t==="brush";
-};
-
-fabricCanvas.on("mouse:down",opt=>{
-  if(currentTool==="bucket" && opt.target){
-    opt.target.set("fill",currentColor);
-    fabricCanvas.renderAll();
-    saveState();
-  }
-  if(currentTool==="eraser" && opt.target){
-    fabricCanvas.remove(opt.target);
-    saveState();
-  }
-});
-
-window.enhance=()=>{
-  fabricCanvas.forEachObject(o=>o.set("strokeWidth",2));
-  fabricCanvas.renderAll();
-};
-
-window.zoom=f=>{
-  zoomLevel=Math.min(Math.max(zoomLevel*f,1),4);
-  fabricCanvas.setZoom(zoomLevel);
-};
-
-window.save=()=>{
-  const dataURL=fabricCanvas.toDataURL();
-  const data=getProfileData(currentProfile);
-  data.saved.push(dataURL);
-  saveProfileData(currentProfile,data);
-  loadHome();
-  alert("تم الحفظ");
-};
-
-/* 🔥🔥 التعديل الحقيقي هنا فقط 🔥🔥 */
-window.openBlank=()=>{
-  showScreen("editor");
-  requestAnimationFrame(()=>{
-    fabricCanvas.clear();
-    resizeCanvas();
-    fabricCanvas.setBackgroundColor("#fff",fabricCanvas.renderAll.bind(fabricCanvas));
-    undoStack=[]; redoStack=[];
-    saveState();
-  });
-};
-
-function openImage(src){
-  showScreen("editor");
-  requestAnimationFrame(()=>{
-    resizeCanvas();
-    fabric.Image.fromURL(src,img=>{
-      fabricCanvas.clear();
-      const s=Math.min(
-        fabricCanvas.width/img.width,
-        fabricCanvas.height/img.height
-      );
-      img.scale(s);
-      fabricCanvas.setBackgroundImage(img,fabricCanvas.renderAll.bind(fabricCanvas));
-      undoStack=[]; redoStack=[];
-      saveState();
-    },{crossOrigin:"anonymous"});
-  });
-}
-
-/* باقي الكود (بروفايلات + صور) كما هو */
-let currentProfile=null;
-const baseImages=["images/1.png","images/2.png","images/3.png"];
-
-function getProfiles(){return JSON.parse(localStorage.getItem("profiles")||"[]");}
-function saveProfiles(p){localStorage.setItem("profiles",JSON.stringify(p));}
-function getProfileData(n){return JSON.parse(localStorage.getItem("data_"+n)||'{"images":[],"saved":[]}');}
-function saveProfileData(n,d){localStorage.setItem("data_"+n,JSON.stringify(d));}
-
-window.createProfile=()=>{
-  const n=profileInput.value.trim();
-  if(!n) return;
-  const p=getProfiles(); p.push(n);
-  saveProfiles(p); saveProfileData(n,{images:[],saved:[]});
-  loadProfiles();
-};
-
-function loadProfiles(){
-  profileList.innerHTML="";
-  getProfiles().forEach(p=>{
-    const d=document.createElement("div");
-    d.className="profile";
-    d.textContent=p;
-    d.onclick=()=>{currentProfile=p; profileTitle.textContent=p; loadHome(); showScreen("home");};
-    profileList.appendChild(d);
-  });
-}
-
-function loadHome(){
-  gallery.innerHTML=""; savedGallery.innerHTML="";
-  const d=getProfileData(currentProfile);
-  [...baseImages,...d.images].forEach(s=>{
-    const i=new Image(); i.src=s; i.onclick=()=>openImage(s);
-    gallery.appendChild(i);
-  });
-  d.saved.forEach(s=>{
-    const i=new Image(); i.src=s; i.onclick=()=>openImage(s);
-    savedGallery.appendChild(i);
-  });
-}
-
-window.addImage=e=>{
-  const r=new FileReader();
-  r.onload=ev=>{
-    const d=getProfileData(currentProfile);
-    d.images.push(ev.target.result);
-    saveProfileData(currentProfile,d);
-    loadHome();
-  };
-  r.readAsDataURL(e.target.files[0]);
-};
-
-window.backHome=()=>showScreen("home");
-
-const colors=["#000","#f00","#0f0","#00f","#ff0","#0ff","#f0f","#ffa500","#8a2be2","#964b00","#fff","#888"];
-colors.forEach(c=>{
-  const d=document.createElement("div");
-  d.className="color"; d.style.background=c;
-  d.onclick=()=>{
-    document.querySelectorAll(".color").forEach(x=>x.classList.remove("active"));
-    d.classList.add("active");
-    currentColor=c;
-    fabricCanvas.freeDrawingBrush.color=c;
-  };
-  colorsDiv.appendChild(d);
-});
-colorsDiv.firstChild.classList.add("active");
-
-size.oninput=()=>fabricCanvas.freeDrawingBrush.width=size.value;
-
-loadProfiles();
-resizeCanvas();
-
-})();
-</script>
+<script src="js/editor.js"></script>
+<script src="js/app.js"></script>
 
 </body>
 </html>
