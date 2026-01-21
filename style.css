@@ -1,0 +1,180 @@
+/* ================= RESET ================= */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: Arial, sans-serif;
+  background: #222;
+  color: #fff;
+  overflow: hidden;
+}
+
+/* ================= SCREENS ================= */
+.screen {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+}
+
+.screen.active {
+  display: flex;
+}
+
+/* ================= HEADERS ================= */
+h2, h3 {
+  text-align: center;
+  margin: 8px 0;
+}
+
+/* ================= BUTTONS ================= */
+button {
+  background: #333;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button:active {
+  background: #555;
+}
+
+/* ================= PROFILES ================= */
+#profilesList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.profile-item {
+  background: #333;
+  margin: 8px 0;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.profile-actions {
+  padding: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.profile-actions input {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+}
+
+/* ================= HOME ================= */
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  justify-content: center;
+}
+
+.gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.gallery img {
+  width: 90px;
+  height: 90px;
+  background: #fff;
+  border-radius: 10px;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+/* ================= EDITOR ================= */
+.top-bar {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: #111;
+}
+
+#editorContainer {
+  flex: 1;
+  background: #444;
+  margin: 6px;
+  border-radius: 12px;
+  overflow: hidden;
+  touch-action: none;
+  position: relative;
+}
+
+/* SVG injected here */
+#editorContainer svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #fff;
+}
+
+/* ================= TOOLS ================= */
+.tools {
+  background: #111;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tool-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tool-row input[type="range"] {
+  width: 120px;
+}
+
+/* ================= COLORS ================= */
+#colorPalette {
+  display: grid;
+  grid-template-columns: repeat(8, 30px);
+  gap: 6px;
+  justify-content: center;
+}
+
+.color {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #555;
+  cursor: pointer;
+}
+
+.color.active {
+  border: 3px solid #0af;
+  transform: translateY(-2px);
+}
+
+/* ================= SCROLL ================= */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
