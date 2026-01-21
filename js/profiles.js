@@ -1,112 +1,76 @@
-/* =====================================================
-   PROFILES.JS
-   - UI Logic للبروفايلات
-   - Create / Rename / Delete / Select
-===================================================== */
+// js/profiles.js
 
-let currentProfile = null;
+import { Storage } from "./storage.js";
 
-/* ================= INIT ================= */
+const Profiles = (() => {
 
-document.addEventListener("DOMContentLoaded", () => {
-  renderProfiles();
-});
+  const listEl = document.getElementById("profilesList");
+  const inputEl = document.getElementById("newProfileName");
+  const createBtn = document.getElementById("createProfileBtn");
 
-/* ================= RENDER ================= */
+  let selectCallback = null;
 
-function renderProfiles() {
-  const list = document.getElementById("profilesList");
-  list.innerHTML = "";
+  // ================= INIT =================
+  function init() {
+    render();
 
-  const profiles = Storage.getProfiles();
-
-  profiles.forEach(name => {
-    const item = document.createElement("div");
-    item.className = "profile-item";
-
-    const title = document.createElement("span");
-    title.textContent = name;
-    title.onclick = () => selectProfile(name);
-
-    const editBtn = document.createElement("button");
-    editBtn.textContent = "✏️";
-    editBtn.onclick = () => renameProfileUI(name);
-
-    const deleteBtn = document.createElement("button");
-    deleteBtn.textContent = "🗑";
-    deleteBtn.onclick = () => deleteProfileUI(name);
-
-    item.append(title, editBtn, deleteBtn);
-    list.appendChild(item);
-  });
-}
-
-/* ================= ACTIONS ================= */
-
-function createProfileUI() {
-  const name = prompt("اسم البروفايل:");
-  if (!name) return;
-
-  if (!Storage.createProfile(name)) {
-    alert("الاسم مستخدم أو غير صالح");
-    return;
+    createBtn.addEventListener("click", createProfile);
   }
 
-  renderProfiles();
-}
+  // ================= CREATE =================
+  function createProfile() {
+    const name = inputEl.value.trim();
+    if (!name) {
+      alert("اكتب اسم البروفايل");
+      return;
+    }
 
-function deleteProfileUI(name) {
-  if (!confirm(`حذف بروفايل "${name}"؟`)) return;
+    const profiles = Storage.getProfiles();
 
-  Storage.deleteProfile(name);
+    if (profiles.includes(name)) {
+      alert("البروفايل ده موجود بالفعل");
+      return;
+    }
 
-  if (currentProfile === name) {
-    currentProfile = null;
-    localStorage.removeItem("activeProfile");
+    Storage.addProfile(name);
+    inputEl.value = "";
+    render();
   }
 
-  renderProfiles();
-}
+  // ================= RENDER =================
+  function render() {
+    listEl.innerHTML = "";
 
-function renameProfileUI(oldName) {
-  const newName = prompt("اسم جديد:", oldName);
-  if (!newName || newName === oldName) return;
+    const profiles = Storage.getProfiles();
 
-  if (!Storage.renameProfile(oldName, newName)) {
-    alert("الاسم غير صالح أو مستخدم");
-    return;
+    if (profiles.length === 0) {
+      listEl.innerHTML = "<p>مفيش بروفايلات لسه</p>";
+      return;
+    }
+
+    profiles.forEach(name => {
+      const div = document.createElement("div");
+      div.className = "profile-item";
+      div.textContent = name;
+
+      div.onclick = () => {
+        if (selectCallback) selectCallback(name);
+      };
+
+      listEl.appendChild(div);
+    });
   }
 
-  if (currentProfile === oldName) {
-    currentProfile = newName;
-    localStorage.setItem("activeProfile", newName);
+  // ================= EVENTS =================
+  function onSelect(cb) {
+    selectCallback = cb;
   }
 
-  renderProfiles();
-}
+  return {
+    init,
+    onSelect,
+  };
 
-/* ================= SELECT ================= */
+})();
 
-function selectProfile(name) {
-  currentProfile = name;
-  localStorage.setItem("activeProfile", name);
-
-  document.getElementById("currentProfileName").textContent = name;
-
-  // هنا بعد كده هننادي:
-  // loadProfileImages(name)
-}
-
-/* ================= HELPERS ================= */
-
-function getActiveProfile() {
-  if (currentProfile) return currentProfile;
-
-  const saved = localStorage.getItem("activeProfile");
-  if (saved) {
-    currentProfile = saved;
-    return saved;
-  }
-
-  return null;
-}
+export { Profiles };
